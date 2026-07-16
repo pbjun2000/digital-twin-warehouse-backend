@@ -96,7 +96,6 @@
 - FastAPI
 - NVIDIA cuOpt
 - MAPF
-- NetworkX
 
 ### Infrastructure
 
@@ -163,10 +162,8 @@ flowchart TD
 
 ## 개발 기록
 
-프로젝트 진행 과정에서 담당한 기능, 설계 결정과 문제 해결 과정을 주차별로 정리합니다.
-
-| 기간 | 주요 내용 | 문서 |
+| 단계 | 주요 내용 | 문서 |
 |---|---|---|
-| 주제 선정 | 문제 정의, 후보 주제 비교 및 기술 검토 | [주제 선정 과정](docs/00-topic-selection.md) |
-| 1주차 | 개발 환경 구성 및 Warehouse 도메인 구현 | [1주차 개발 기록](docs/week01-environment-and-warehouse.md) |
-| 2주차 | Node, Edge, Zone 설계 및 CRUD 구현 | [2주차 개발 기록](docs/week02-node-edge-zone-crud.md) |
+| 주제 선정 | 후보 주제 비교, 문제 정의 및 LARO 선정 | [주제 선정 과정](docs/01-topic-selection.md) |
+| 설계 구체화 | 서비스 흐름, 역할 분담, ERD 및 시스템 구조 설계 | [서비스 및 데이터 설계](docs/02-service-and-data-design.md) |
+| 백엔드 개발 | 개발환경 구성 및 창고 그래프 도메인 CRUD 구현 | [백엔드 개발 기록](docs/03-backend-development.md) |
