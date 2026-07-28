@@ -185,3 +185,6 @@ flowchart TD
 | 주제 선정 | 후보 주제 비교, 문제 정의 및 LARO 선정 | [주제 선정 과정](docs/01-topic-selection.md) |
 | 설계 구체화 | 서비스 흐름, 역할 분담, ERD 및 시스템 구조 설계 | [서비스 및 데이터 설계](docs/02-service-and-data-design.md) |
 | 백엔드 개발 | 개발환경 구성 및 창고 그래프 도메인 CRUD 구현 | [백엔드 개발 기록](docs/03-backend-development.md) |
+| 동적 재최적화 | FastAPI 연동, 작업 재배정, 결과·이력 저장 및 WebSocket 알림 | [동적 재최적화 개발 기록](docs/04-dynamic-reoptimization.md) |
+| 설계 의사결정 | Redis 위치 저장 단위, FE 보간, LLM 적용 범위 검토 | [설계 의사결정 기록](docs/05-design-decisions.md) |
+
