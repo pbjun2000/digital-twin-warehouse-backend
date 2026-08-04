@@ -189,4 +189,5 @@ flowchart TD
 | 백엔드 개발 | 개발환경 구성 및 창고 그래프 도메인 CRUD 구현 | [백엔드 개발 기록](docs/03-backend-development.md) |
 | 동적 재최적화 | FastAPI 연동, 작업 재배정, 결과·이력 저장 및 WebSocket 알림 | [동적 재최적화 개발 기록](docs/04-dynamic-reoptimization.md) |
 | 설계 의사결정 | Redis 위치 저장 단위, FE 보간, LLM 적용 범위 검토 | [설계 의사결정 기록](docs/05-design-decisions.md) |
+| 게스트 접근 모드 | UUID 기반 게스트 JWT 인증과 시뮬레이션 실행 소유권 분리 | [개발 기록](docs/06-guest-access.md) |
 
