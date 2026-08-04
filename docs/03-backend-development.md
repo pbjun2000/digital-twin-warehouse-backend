@@ -1,79 +1,66 @@
-# 백엔드 개발 1차 기록
+# 03. 창고 그래프 도메인 구현 및 문제 해결
 
-## 1. 개발 진행 배경
+> 이 문서는 프로젝트 초기 백엔드 개발 단계에서 창고 그래프 도메인을 구현하고, 개발 환경과 API 오류를 해결한 과정을 정리한 기록입니다.
 
-프로젝트 1~2주차에는 후보 주제를 조사하고 비교한 뒤, 최종적으로 다음 주제를 선정했습니다.
+## 1. 개발 범위
 
-> **LARO: Digital Twin 기반 자율 창고 운영 및 다중 로봇 작업 최적화 시스템**
+백엔드 3인 분업 중 창고 구조와 이동 그래프, 경로 최적화 서버 연동 영역을 담당했습니다.
 
-3주차 초반에는 서비스 흐름, 시스템 구성, 데이터 저장 구조, 백엔드 역할 분담과 ERD를 구체화했습니다.
+초기 개발 단계에서는 향후 경로 최적화의 입력 데이터가 되는 창고 레이아웃을 관리하기 위해 다음 도메인을 우선 구현했습니다.
 
-이후 3주차 후반부터 실제 개발을 시작했으며, 첫 2일 동안 다음 작업을 진행했습니다.
+* Warehouse
+* WarehouseNode
+* WarehouseEdge
+* WarehouseZone
 
-- Spring Boot 프로젝트 실행 환경 확인
-- PostgreSQL, Redis, Neo4j 로컬 개발환경 구성
-- Local 및 Docker Profile 분리
-- Warehouse CRUD 구현 및 테스트
-- WarehouseNode CRUD 구현 및 테스트
-- WarehouseEdge CRUD 구현 및 테스트
-- WarehouseZone CRUD 구현 및 테스트
-- 기능별 브랜치, Pull Request 및 병합 진행
+이후 담당 범위는 다음 기능으로 확장했습니다.
 
----
-
-## 2. 개인 담당 영역
-
-백엔드 3인 중 창고 구조와 이동 그래프, 경로 최적화 서버 연동 영역을 담당했습니다.
-
-### 담당 범위
-
-- Warehouse 관리
-- WarehouseNode 관리
-- WarehouseEdge 관리
-- WarehouseZone 관리
-- ChargingStation 관리
-- 창고 레이아웃 통합 조회
-- Neo4j 그래프 동기화
-- FastAPI 경로 최적화 서버 연동
-- 경로 계산 및 재계산 결과 저장
-
-이번 개발에서는 향후 경로 최적화에 사용할 창고 레이아웃 데이터를 먼저 관리할 수 있도록 Warehouse, Node, Edge와 Zone API를 구현했습니다.
+* ChargingStation 관리
+* 창고 레이아웃 통합 조회
+* PostgreSQL–Neo4j 그래프 동기화
+* FastAPI 초기 계획 및 재계획 연동
+* 최적화 계획 검증과 실행 상태 반영
 
 ---
 
-## 3. 개발환경 구성
+## 2. 개발 환경 구성
 
 ### 사용 기술
 
-- Java 17
-- Spring Boot
-- Spring Data JPA
-- PostgreSQL
-- Redis
-- Neo4j
-- Docker
-- Docker Compose
-- Gradle
-- Postman
-- Git 및 GitHub
+| 구분             | 기술                           |
+| -------------- | ---------------------------- |
+| Language       | Java 17                      |
+| Framework      | Spring Boot, Spring Data JPA |
+| Database       | PostgreSQL, Redis, Neo4j     |
+| Infrastructure | Docker, Docker Compose       |
+| Build          | Gradle                       |
+| Test           | Postman                      |
+
+PostgreSQL, Redis, Neo4j는 Docker Compose로 실행하고, 개발 중에는 Spring Boot를 IntelliJ 또는 터미널에서 직접 실행했습니다.
+
+```text
+로컬 개발 환경
+
+Spring Boot
+→ 로컬에서 실행
+
+PostgreSQL·Redis·Neo4j
+→ Docker 컨테이너로 실행
+```
 
 ### Docker Compose 구성
 
-프로젝트에서 사용하는 데이터 저장소를 Docker Compose로 실행했습니다.
-
-| 서비스 | 역할 | 포트 |
-|---|---|---:|
-| PostgreSQL | 창고, 로봇, 작업 등 정형 데이터 저장 | 5432 |
-| Redis | 로봇 위치, 배터리 등 실시간 상태 관리 | 6379 |
-| Neo4j | Node와 Edge 기반 창고 그래프 관리 | 7474, 7687 |
-
-로컬 개발 중에는 Spring Boot를 IDE 또는 터미널에서 직접 실행하고, 데이터 저장소만 Docker 컨테이너로 실행하는 방식을 사용했습니다.
+| 서비스        | 역할                         |         포트 |
+| ---------- | -------------------------- | ---------: |
+| PostgreSQL | 창고·로봇·작업 등 영속 데이터 저장       |       5432 |
+| Redis      | 로봇 위치와 시뮬레이션 Runtime 상태 관리 |       6379 |
+| Neo4j      | Node와 Edge 기반 창고 그래프 관리    | 7474, 7687 |
 
 ---
 
-## 4. 실행 환경 분리
+## 3. Local·Docker Profile 분리
 
-Docker 내부에서 접근할 때와 로컬 Spring Boot에서 접근할 때 데이터베이스 주소가 달라지는 문제를 방지하기 위해 Spring Profile을 분리했습니다.
+Spring Boot를 로컬에서 실행할 때와 Docker 컨테이너에서 실행할 때 데이터베이스 주소가 달라지는 문제를 방지하기 위해 Profile을 분리했습니다.
 
 ```text
 application.yaml
@@ -83,103 +70,76 @@ application-docker.yaml
 
 ### Local Profile
 
-로컬에서 실행한 Spring Boot가 Docker 컨테이너에 접근합니다.
+Spring Boot는 내 컴퓨터에서 실행하고, 데이터 저장소만 Docker 컨테이너로 실행합니다.
 
 ```text
-PostgreSQL : localhost:5432
-Redis      : localhost:6379
-Neo4j      : localhost:7687
+PostgreSQL → localhost:5432
+Redis      → localhost:6379
+Neo4j      → localhost:7687
 ```
 
 ### Docker Profile
 
-Spring Boot까지 Docker Compose로 실행할 경우 서비스 이름을 사용합니다.
+Spring Boot까지 Docker Compose로 실행하는 경우에는 Docker Compose의 서비스 이름을 사용합니다.
 
 ```text
-PostgreSQL : postgres:5432
-Redis      : redis:6379
-Neo4j      : neo4j:7687
+PostgreSQL → postgres:5432
+Redis      → redis:6379
+Neo4j      → neo4j:7687
 ```
 
-환경별 설정을 분리하여 로컬 개발 설정과 컨테이너 실행 설정이 섞이지 않도록 구성했습니다.
+컨테이너 내부에서 `localhost`는 현재 컨테이너 자신을 의미하므로, 다른 컨테이너에는 서비스 이름으로 접근해야 합니다.
+
+환경별 설정을 분리해 로컬 개발 설정과 Docker 실행 설정이 섞이지 않도록 구성했습니다.
 
 ---
 
-## 5. Warehouse 도메인 구현
+## 4. 창고 그래프 도메인 구현
 
-Warehouse는 창고 레이아웃 데이터가 소속되는 기준이 되는 도메인입니다.
-
-### 주요 역할
-
-- 창고 기본 정보 관리
-- 창고 크기와 레이아웃 정보 관리
-- 사용자와 창고의 소유 관계 관리
-- Node, Zone 등 하위 데이터의 기준 제공
-
-### 구현 구조
+창고의 이동 구조를 다음과 같이 표현했습니다.
 
 ```text
-Controller
-  ↓
-Service
-  ↓
-Repository
-  ↓
-PostgreSQL
+Warehouse
+ ├─ WarehouseZone
+ └─ WarehouseNode
+      └─ WarehouseEdge
 ```
 
-클라이언트 요청과 Entity를 직접 연결하지 않고 요청 및 응답 DTO를 분리했습니다.
+### 도메인별 역할
+
+| 도메인             | 역할                   | 주요 데이터             |
+| --------------- | -------------------- | ------------------ |
+| `Warehouse`     | 창고 레이아웃의 최상위 기준      | 이름, 크기, 설명, 소유 사용자 |
+| `WarehouseNode` | 로봇이 이동할 수 있는 그래프 정점  | 창고, 좌표, 구역 정보      |
+| `WarehouseEdge` | 두 Node 사이의 이동 가능한 연결 | 출발·도착 Node, 거리, 방향 |
+| `WarehouseZone` | 창고 내부 공간의 용도 구분      | 구역명, 유형, 좌표 범위     |
+
+각 도메인에 생성·전체 조회·단건 조회·수정·삭제 API를 구현했습니다.
+
+| 기능    | HTTP Method | 정상 응답            |
+| ----- | ----------- | ---------------- |
+| 생성    | `POST`      | `201 Created`    |
+| 전체 조회 | `GET`       | `200 OK`         |
+| 단건 조회 | `GET`       | `200 OK`         |
+| 수정    | `PATCH`     | `200 OK`         |
+| 삭제    | `DELETE`    | `204 No Content` |
+
+### WarehouseNode
+
+`WarehouseNode`는 단순한 화면 좌표가 아니라 로봇 경로 탐색에 사용되는 그래프의 정점입니다.
 
 ```text
-WarehouseCreateRequest
-WarehouseUpdateRequest
-WarehouseResponse
+WarehouseNode
+→ 로봇의 이동 기준점
+→ Edge 연결의 시작점과 도착점
+→ 향후 경로 최적화 입력 데이터
 ```
 
-Entity에는 Setter를 두지 않고 생성 및 수정 메서드를 통해 상태를 변경하도록 구성했습니다.
+Node를 별도 도메인으로 분리해 창고 화면 표현과 경로 탐색에서 동일한 기준점을 사용할 수 있도록 했습니다.
 
----
+### WarehouseEdge
 
-## 6. WarehouseNode 도메인 구현
-
-WarehouseNode는 창고 내에서 로봇이 이동할 수 있는 지점을 좌표로 표현합니다.
-
-### 주요 데이터
-
-- Node ID
-- 소속 Warehouse
-- X 좌표
-- Y 좌표
-- 구역 식별 정보
-
-Node를 단순 화면 좌표가 아니라 경로 탐색 그래프의 정점으로 사용할 수 있도록 별도 도메인으로 분리했습니다.
-
-### API
-
-```http
-POST   /api/warehouse-nodes
-GET    /api/warehouse-nodes
-GET    /api/warehouse-nodes/{nodeId}
-PATCH  /api/warehouse-nodes/{nodeId}
-DELETE /api/warehouse-nodes/{nodeId}
-```
-
-Postman을 통해 생성, 전체 조회, 단건 조회, 수정 및 삭제 동작을 확인했습니다.
-
----
-
-## 7. WarehouseEdge 도메인 구현
-
-WarehouseEdge는 두 WarehouseNode 사이의 연결 관계를 표현합니다.
-
-### 주요 데이터
-
-- 출발 노드
-- 도착 노드
-- 이동 거리
-- 이동 방향
-
-이동 방향은 Enum으로 관리했습니다.
+`WarehouseEdge`는 두 Node 사이의 이동 가능한 경로를 표현합니다.
 
 ```java
 public enum DirectionType {
@@ -189,50 +149,17 @@ public enum DirectionType {
 }
 ```
 
-### 방향별 의미
+| 방향       | 의미                       |
+| -------- | ------------------------ |
+| `BOTH`   | 양방향 이동 가능                |
+| `A_TO_B` | 시작 Node에서 도착 Node 방향만 이동 |
+| `B_TO_A` | 도착 Node에서 시작 Node 방향만 이동 |
 
-| 값 | 설명 |
-|---|---|
-| BOTH | 출발 노드와 도착 노드 사이 양방향 이동 가능 |
-| A_TO_B | 출발 노드에서 도착 노드 방향으로만 이동 가능 |
-| B_TO_A | 도착 노드에서 출발 노드 방향으로만 이동 가능 |
+이동 방향을 Enum으로 관리해 일반 통로와 일방통행 통로를 동일한 구조로 표현했습니다.
 
-이를 통해 양방향 통로뿐 아니라 일방통행 통로도 표현할 수 있도록 설계했습니다.
+### WarehouseZone
 
-### 생성 요청 예시
-
-```http
-POST /api/warehouse-edges
-```
-
-```json
-{
-  "fromNodeId": 1,
-  "toNodeId": 2,
-  "distance": 10.0,
-  "directionType": "BOTH"
-}
-```
-
-### 응답 예시
-
-```json
-{
-  "id": 1,
-  "fromNodeId": 1,
-  "toNodeId": 2,
-  "distance": 10.0,
-  "directionType": "BOTH"
-}
-```
-
----
-
-## 8. WarehouseZone 도메인 구현
-
-WarehouseZone은 창고 내부 공간을 용도별로 구분하는 도메인입니다.
-
-### ZoneType
+`WarehouseZone`은 창고 내부 공간을 용도에 따라 구분합니다.
 
 ```java
 public enum ZoneType {
@@ -245,77 +172,45 @@ public enum ZoneType {
 }
 ```
 
-### 주요 데이터
+구역은 최소·최대 X, Y 좌표를 저장해 직사각형 범위로 표현했습니다.
 
-- 소속 Warehouse
-- 구역 이름
-- 구역 유형
-- 구역 설명
-- 최소 X 좌표
-- 최대 X 좌표
-- 최소 Y 좌표
-- 최대 Y 좌표
-
-구역의 최소·최대 좌표를 저장하여 직사각형 형태의 창고 영역을 표현하도록 구현했습니다.
-
-### 생성 요청 예시
-
-```http
-POST /api/warehouse-zones
-```
-
-```json
-{
-  "warehouseId": 1,
-  "name": "A구역",
-  "zoneType": "STORAGE",
-  "description": "완제품 보관 구역",
-  "minX": 0.0,
-  "maxX": 100.0,
-  "minY": 0.0,
-  "maxY": 50.0
-}
-```
+이를 통해 보관, 이동, 입고, 출고, 충전 및 제한 구역을 데이터로 구분할 수 있도록 했습니다.
 
 ---
 
-## 9. 공통 CRUD 구조
+## 5. 공통 구현 방식
 
-WarehouseNode, WarehouseEdge와 WarehouseZone에 다음 CRUD API를 구현했습니다.
+### 계층 분리
 
-| 기능 | HTTP Method | 정상 응답 |
-|---|---|---|
-| 생성 | POST | 201 Created |
-| 전체 조회 | GET | 200 OK |
-| 단건 조회 | GET | 200 OK |
-| 수정 | PATCH | 200 OK |
-| 삭제 | DELETE | 204 No Content |
-
-각 기능은 다음 계층으로 구성했습니다.
+각 기능은 다음 구조로 구현했습니다.
 
 ```text
 Controller
-  ↓
+    ↓
 Request DTO
-  ↓
+    ↓
 Service
-  ↓
+    ↓
 Repository
-  ↓
+    ↓
 Entity
-  ↓
+    ↓
 Response DTO
 ```
 
-Postman을 사용하여 생성부터 삭제까지의 전체 흐름을 확인했습니다.
+Controller가 Entity를 직접 요청과 응답에 사용하지 않도록 DTO를 분리했습니다.
 
----
+이를 통해 다음 책임을 구분했습니다.
 
-## 10. Entity 상태 변경 방식
+* Controller: HTTP 요청과 응답 처리
+* Service: 비즈니스 규칙과 트랜잭션 처리
+* Repository: 데이터 조회와 저장
+* Entity: 도메인 상태와 상태 변경
+* DTO: 외부 요청·응답 구조
 
-Entity에 Lombok `@Setter`를 사용하지 않고, 생성과 수정에 필요한 메서드를 Entity 내부에 정의했습니다.
+### Entity 상태 변경 제한
 
-### 생성
+Entity에 일괄적인 Setter를 제공하지 않고, 생성과 수정 목적이 드러나는 메서드를 정의했습니다.
 
 ```java
 WarehouseEdge.create(
@@ -326,8 +221,6 @@ WarehouseEdge.create(
 );
 ```
 
-### 수정
-
 ```java
 warehouseEdge.update(
     fromNode,
@@ -337,34 +230,32 @@ warehouseEdge.update(
 );
 ```
 
-이를 통해 Entity 상태가 변경되는 위치를 제한하고, 도메인 객체의 상태 변경 의도를 코드에서 명확하게 드러내고자 했습니다.
-
-요청 DTO에는 JSON 역직렬화를 위해 Getter, Setter와 기본 생성자를 사용했습니다.
+이를 통해 Entity의 상태가 임의로 변경되는 것을 줄이고, 변경 의도를 코드에 명확하게 표현했습니다.
 
 ---
 
-## 11. 문제 해결 기록
+## 6. 문제 해결 기록
 
-### 11.1 Spring Boot가 `.env` 값을 읽지 못하는 문제
+### 6.1 Spring Boot가 `.env` 값을 읽지 못한 문제
 
 #### 문제
 
-Docker Compose에서는 `.env` 파일의 PostgreSQL 설정이 적용됐지만, 로컬에서 Spring Boot를 실행했을 때 환경변수 값이 주입되지 않았습니다.
-
-설정값 대신 다음 문자열이 그대로 전달되었습니다.
+Docker Compose에서는 `.env`에 작성한 PostgreSQL 설정이 적용됐지만, 로컬에서 Spring Boot를 실행하면 환경변수가 주입되지 않았습니다.
 
 ```text
 ${POSTGRES_USER}
 ${POSTGRES_PASSWORD}
 ```
 
+설정값 대신 위 문자열이 그대로 전달되면서 PostgreSQL 연결에 실패했습니다.
+
 #### 원인
 
-Docker Compose는 프로젝트 루트의 `.env` 파일을 자동으로 읽지만, 로컬에서 실행한 Spring Boot는 해당 파일을 자동으로 환경변수로 등록하지 않습니다.
+Docker Compose는 프로젝트 루트의 `.env`를 자동으로 읽지만, 로컬에서 실행한 Spring Boot는 `.env` 파일을 운영체제 환경변수로 자동 등록하지 않습니다.
 
 #### 해결
 
-PowerShell에서 PostgreSQL 환경변수를 직접 등록한 후 서버를 실행했습니다.
+PowerShell에서 필요한 환경변수를 등록한 뒤 Spring Boot를 실행했습니다.
 
 ```powershell
 $env:POSTGRES_DB="warehouse"
@@ -374,115 +265,120 @@ $env:POSTGRES_PASSWORD="warehouse1234"
 .\gradlew.bat bootRun
 ```
 
-이를 통해 로컬 Spring Boot가 PostgreSQL에 정상적으로 연결되는 것을 확인했습니다.
+이를 통해 Docker Compose의 환경변수 처리와 로컬 Spring Boot의 환경변수 처리가 서로 다르다는 점을 확인했습니다.
 
 ---
 
-### 11.2 Docker backend와 로컬 Spring Boot의 포트 충돌
+### 6.2 Docker backend와 로컬 Spring Boot의 포트 충돌
 
 #### 문제
 
-`docker compose up -d` 실행 시 backend 컨테이너도 함께 실행되었고, 로컬 Spring Boot와 동일한 8080 포트를 사용하면서 서버 실행이 실패했습니다.
+`docker compose up -d`를 실행하면 backend 컨테이너도 함께 실행됐습니다.
+
+이 상태에서 로컬 Spring Boot를 실행하면 두 서버가 모두 8080 포트를 사용해 실행에 실패했습니다.
 
 #### 해결
 
-로컬 개발 시 backend 컨테이너만 중지하고 데이터 저장소는 계속 실행했습니다.
+로컬 개발 시에는 backend 컨테이너만 중지하고 데이터 저장소 컨테이너는 유지했습니다.
 
 ```powershell
 docker compose stop backend
 ```
 
-이후 로컬 Spring Boot를 실행했습니다.
+이후 Spring Boot를 로컬에서 실행했습니다.
 
 ```powershell
 .\gradlew.bat bootRun
 ```
 
-로컬 개발과 전체 Docker 실행 방식을 구분하여 포트 충돌을 해결했습니다.
+```text
+로컬 개발
+
+backend 컨테이너 → 중지
+Spring Boot       → 로컬 실행
+DB 컨테이너       → 계속 실행
+```
+
+전체 Docker 실행과 로컬 개발 환경을 구분해 포트 충돌을 해결했습니다.
 
 ---
 
-### 11.3 Edge 생성 시 Node ID가 null로 전달되는 것으로 판단한 문제
+### 6.3 Edge 생성 API가 Controller에 도달하지 않은 문제
 
 #### 문제
 
-WarehouseEdge 생성 요청에서 다음 오류가 발생했습니다.
+`POST /api/warehouse-edges` 요청 중 다음 오류가 발생했습니다.
 
 ```text
 The given id must not be null
 ```
 
-처음에는 요청 DTO에 `fromNodeId` 또는 `toNodeId`가 바인딩되지 않은 것으로 판단했습니다.
+처음에는 요청 DTO의 `fromNodeId` 또는 `toNodeId`가 바인딩되지 않은 것으로 판단했습니다.
 
-#### 확인 과정
+다음 항목을 차례로 확인했습니다.
 
-- Postman 요청 URL 확인
-- Body의 JSON 형식 확인
-- DTO 필드명 확인
-- DTO Getter 및 Setter 확인
-- Controller에 요청 값 출력 코드 추가
+* 요청 URL과 HTTP Method
+* JSON Body 형식
+* DTO 필드명과 Getter·Setter
+* Controller로 전달되는 요청값
 
-이후 서버 로그를 다시 확인한 결과, 실제 요청이 Controller에 도달하지 못하고 있음을 확인했습니다.
+확인 과정에서 실제 요청이 Edge Controller에 도달하지 않고 있다는 것을 발견했습니다.
 
----
-
-### 11.4 WarehouseEdge Controller가 등록되지 않는 문제
-
-#### 문제
-
-`POST /api/warehouse-edges` 요청 시 Edge Controller가 실행되지 않고 다음 오류가 발생했습니다.
+추가로 다음 오류가 확인됐습니다.
 
 ```text
 No static resource api/warehouse-edges
 ```
 
-Spring MVC가 요청을 처리할 Controller를 찾지 못하고 정적 리소스 요청으로 처리하고 있었습니다.
-
 #### 원인
 
-Windows 환경에서 Controller 패키지 폴더명을 변경한 뒤, 이전 빌드 결과가 남아 새 Controller가 정상적으로 반영되지 않은 것으로 판단했습니다.
+Spring MVC가 요청을 처리할 Controller를 찾지 못해 정적 리소스 요청으로 처리하고 있었습니다.
+
+Windows 환경에서 패키지 폴더명을 변경한 뒤 이전 빌드 결과가 남아, 새로운 Controller가 정상적으로 반영되지 않은 것으로 판단했습니다.
 
 #### 해결
 
-서버를 종료한 뒤 기존 빌드 결과를 제거하고 다시 실행했습니다.
+기존 빌드 결과를 제거한 뒤 애플리케이션을 다시 실행했습니다.
 
 ```powershell
 .\gradlew.bat clean bootRun
 ```
 
-재빌드 후 Edge 생성 API가 정상적으로 등록되었고 다음 응답을 확인했습니다.
+재빌드 후 Edge 생성 API가 정상적으로 등록됐고, 생성부터 수정·삭제까지 동작하는 것을 확인했습니다.
+
+#### 배운 점
+
+오류 메시지만 보고 DTO나 Repository 문제로 단정하지 않고, 요청이 어느 계층까지 전달됐는지 확인해야 한다는 점을 배웠습니다.
 
 ```text
-201 Created
+요청 URL
+→ HTTP Method
+→ Controller 매핑
+→ DTO 바인딩
+→ Service
+→ Repository
+→ Database
 ```
 
-이후 전체 조회, 단건 조회, 수정 및 삭제까지 정상 동작하는 것을 확인했습니다.
+또한 여러 실행 로그가 섞여 있을 수 있으므로 현재 실행 중인 서버와 최신 요청 로그를 구분해서 확인하는 과정이 중요했습니다.
 
 ---
 
-## 12. 테스트 결과
+## 7. 테스트 및 구현 결과
 
-### WarehouseEdge
+Postman을 사용해 Warehouse, Node, Edge, Zone의 CRUD 흐름을 확인했습니다.
 
-| 테스트 | 결과 |
-|---|---|
-| Edge 생성 | 201 Created |
-| 전체 조회 | 200 OK |
-| 단건 조회 | 200 OK |
-| 거리 및 방향 수정 | 200 OK |
-| Edge 삭제 | 204 No Content |
+### API 테스트
 
-### WarehouseZone
+| 테스트    | 결과               |
+| ------ | ---------------- |
+| 데이터 생성 | `201 Created`    |
+| 전체 조회  | `200 OK`         |
+| 단건 조회  | `200 OK`         |
+| 데이터 수정 | `200 OK`         |
+| 데이터 삭제 | `204 No Content` |
 
-| 테스트 | 결과 |
-|---|---|
-| Zone 생성 | 201 Created |
-| 전체 조회 | 200 OK |
-| 단건 조회 | 200 OK |
-| 구역 정보 수정 | 200 OK |
-| Zone 삭제 | 204 No Content |
-
-컴파일 확인도 함께 진행했습니다.
+### 컴파일 확인
 
 ```powershell
 .\gradlew.bat compileJava
@@ -492,95 +388,33 @@ Windows 환경에서 Controller 패키지 폴더명을 변경한 뒤, 이전 빌
 BUILD SUCCESSFUL
 ```
 
+### 초기 개발 결과
+
+* Spring Boot 로컬 실행 환경 구성
+* PostgreSQL·Redis·Neo4j Docker 환경 구성
+* Local·Docker Profile 분리
+* Warehouse·Node·Edge·Zone API 구현
+* Node와 Edge 기반 창고 이동 구조 구현
+* 단방향·양방향 Edge 모델링
+* ZoneType 기반 창고 영역 모델링
+* Postman CRUD 테스트
+* Gradle 컴파일 검증
+
 ---
 
-## 13. Git 및 협업 과정
+## 8. 회고
 
-창고 관련 기능은 `feature/warehouse-domain` 브랜치에서 개발했습니다.
+초기 백엔드 개발을 통해 CRUD 기능을 구현하는 것에서 끝나지 않고, 이후 경로 탐색과 최적화에 활용할 수 있는 형태로 창고 데이터를 모델링했습니다.
 
-### 작업 흐름
+특히 Node와 Edge를 분리하면서 다음 관계를 구체적으로 이해할 수 있었습니다.
 
 ```text
-main 최신화
-  ↓
-feature/warehouse-domain 개발
-  ↓
-compileJava 및 Postman 테스트
-  ↓
-commit
-  ↓
-원격 브랜치 push
-  ↓
-Pull Request 생성
-  ↓
-main 병합
-  ↓
-feature 브랜치에 최신 main 반영
+일반 CRUD 데이터
+→ 창고 이동 그래프
+→ 경로 탐색 입력
+→ 다중 로봇 최적화 데이터
 ```
 
-WarehouseEdge와 WarehouseZone 개발 후 각각 Pull Request를 생성하고 main 브랜치에 병합했습니다.
+또한 개발 환경 문제와 API 오류를 해결하면서 설정 파일, 실행 프로세스, Controller 매핑과 빌드 결과까지 전체 흐름을 확인하는 습관이 중요하다는 점을 경험했습니다.
 
-main의 새로운 변경사항은 다음 명령으로 작업 브랜치에 반영했습니다.
-
-```powershell
-git switch feature/warehouse-domain
-git merge main
-```
-
-충돌 없이 Fast-forward 방식으로 반영된 것을 확인했습니다.
-
----
-
-## 14. 개발 결과
-
-첫 백엔드 개발 단계에서 다음 작업을 완료했습니다.
-
-- Spring Boot 로컬 실행 확인
-- PostgreSQL, Redis, Neo4j Docker 환경 실행
-- Local 및 Docker Profile 분리
-- Warehouse CRUD 구현
-- WarehouseNode CRUD 구현
-- WarehouseEdge CRUD 구현
-- WarehouseZone CRUD 구현
-- Node와 Edge 기반 창고 이동 구조 구현
-- 단방향 및 양방향 Edge 모델링
-- ZoneType 기반 창고 구역 모델링
-- Postman CRUD 테스트 완료
-- Gradle 컴파일 확인
-- 기능별 Pull Request 및 main 병합
-
----
-
-## 15. 배운 점
-
-Docker Compose의 `.env` 파일과 로컬 Spring Boot 환경변수는 서로 다른 방식으로 적용된다는 점을 확인했습니다.
-
-또한 API 요청에서 오류가 발생했을 때 DTO나 Service 코드만 확인하는 것이 아니라 다음 순서로 전체 요청 흐름을 확인해야 한다는 점을 경험했습니다.
-
-```text
-요청 URL
-→ HTTP Method
-→ Controller 매핑
-→ DTO 바인딩
-→ Service 전달 값
-→ Repository 조회
-→ 데이터베이스 상태
-```
-
-처음에는 `id must not be null` 오류를 DTO 문제로 판단했지만, 실제로는 Controller가 등록되지 않은 다른 실행 상태의 로그가 섞여 있었습니다.
-
-서버를 완전히 재빌드하고 현재 요청에 대한 로그를 구분해서 확인하는 과정이 중요하다는 점을 배웠습니다.
-
-또한 Node와 Edge를 분리하여 창고 이동 구조를 구현하면서, 일반적인 CRUD 데이터가 이후 그래프 탐색과 경로 최적화 입력 데이터로 사용될 수 있도록 설계하는 경험을 할 수 있었습니다.
-
----
-
-## 16. 다음 개발 계획
-
-다음 개발에서는 창고 레이아웃의 나머지 요소와 외부 최적화 서버 연동을 단계적으로 진행할 예정입니다.
-
-- ChargingStation 도메인 및 CRUD 구현
-- WarehouseNode와 WarehouseZone 관계 개선
-- 창고 레이아웃 통합 조회 API 구현
-- Neo4j 그래프 동기화 구조 설계
-- FastAPI 경로 최적화 요청 구조 정의
+이후 개발에서는 이 창고 그래프 도메인을 기반으로 레이아웃 통합 조회, Neo4j 동기화, FastAPI 최적화 연동과 동적 재계획 기능을 확장했습니다.
