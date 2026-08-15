@@ -2,207 +2,818 @@
 
 > **Digital Twin 기반 자율 창고 운영 및 다중 로봇 작업 최적화 시스템**
 
-[팀 백엔드 코드](https://github.com/kt-aivle-big-project/BE) · [개발 기록](#개발-기록)
+LARO(LLM Autonomous Robot Orchestration)는  
+창고·재고·로봇의 현재 상태를 기반으로 AI가 작업 계획을 생성하고,
+다중 로봇의 작업 배정·경로 최적화·실시간 실행·재계획까지 연결하는 창고 운영 시스템입니다.
 
-## 프로젝트 소개
+단순한 로봇 경로 탐색이 아니라,
 
-**LARO**는 창고 구조와 로봇 상태를 Digital Twin으로 관리하고, 여러 로봇의 작업 할당과 이동 경로를 최적화하는 자율 창고 운영 시스템입니다.
+**Digital Twin → AI Planning → 작업 최적화 → 다중 로봇 이동 계획 → 실시간 관제 → Dynamic Replanning**
 
-창고의 이동 구조를 `Node`와 `Edge` 기반 그래프로 표현하고, 로봇의 위치·배터리·작업 상태를 통합 관리합니다. 장애물이나 로봇 이상으로 기존 계획을 수행하기 어려운 경우에는 남은 작업과 로봇 상태를 기준으로 경로를 다시 계획합니다.
+의 전체 운영 흐름을 구현했습니다.
 
-> 본 저장소는 팀 프로젝트에서 담당한 백엔드 설계, 구현 및 문제 해결 과정을 정리한 **개인 포트폴리오 저장소**입니다.
-> 실제 서비스 코드는 팀 저장소에서 관리하고 있습니다.
-
----
-
-## 문제 정의
-
-다중 로봇이 각자의 최단 경로만 따라 이동하면 좁은 통로나 교차 구간에서 충돌, 대기 및 정체가 발생할 수 있습니다.
-
-또한 창고 구조, 로봇 상태, 작업 정보가 분산되어 있으면 관리자가 전체 운영 상황을 파악하고 장애 상황에 대응하기 어렵습니다.
-
-LARO는 다음 문제를 해결하는 것을 목표로 합니다.
-
-* 창고 구조와 로봇 상태의 통합 관리
-* 다중 로봇의 작업 할당 및 이동 경로 최적화
-* 실시간 로봇 상태와 작업 진행 상황 관제
-* 장애물 및 로봇 이상 발생 시 동적 재계획
-* 최적화 적용 전후의 운영 지표 비교
+> 본 저장소는 팀 프로젝트에서 제가 담당한 **Backend 설계·구현 및 문제 해결 과정**을 중심으로 정리한 개인 포트폴리오입니다.
 
 ---
 
-## 구현 현황
+## 프로젝트 개요
 
-| 기능                  |     상태     | 주요 내용                                          |
-| ------------------- | :--------: | ---------------------------------------------- |
-| 사용자 인증              |    ✅ 완료    | JWT 로그인, Access Token, Refresh Token 회전 및 로그아웃 |
-| 게스트 체험 모드           |    ✅ 완료    | UUID 기반 `ROLE_GUEST` JWT와 실행 소유권 분리            |
-| 창고 그래프 관리           |    ✅ 완료    | Warehouse·Zone·Node·Edge·ChargingStation 관리    |
-| 창고 데이터 Import       |    ✅ 완료    | JSON 기반 창고 구조 등록 및 초기 데이터 구성                   |
-| 창고 레이아웃 통합 조회       |    ✅ 완료    | 창고 구조, 로봇, 구역 및 충전소 통합 응답                      |
-| PostgreSQL·Neo4j 연동 |    ✅ 완료    | 관계형 데이터 기반 Node·Edge 그래프 동기화                   |
-| 시뮬레이션 실행 관리         |    ✅ 완료    | 실행 생성, 시작, 일시정지, 재개, 초기화 및 종료                  |
-| 실시간 상태 전달           |    ✅ 완료    | Redis 상태 저장 및 WebSocket 이벤트 전달                 |
-| 전역 재계획 백엔드          |    ✅ 완료    | 계획 검증, 임시 저장, DB 반영 및 Runtime 활성화              |
-| FastAPI 최적화 연동      | 🟡 통합 검증 중 | 초기 계획·재계획 HTTP 계약과 예외 처리                       |
-| cuOpt·MAPF 최적화      | 🟡 통합 검증 중 | AI 서버의 실제 최적화 결과와 End-to-End 검증                |
-| 자연어 운영 지원           |  🚧 고도화 예정 | 관리자 명령 해석과 운영 결과 설명                            |
-| KPI 비교 대시보드         |  🚧 고도화 예정 | 이동 거리, 작업 시간, 처리량 및 대기 시간 비교                   |
+물류센터에 다수의 AGV·AMR이 도입되면서
+개별 로봇의 이동보다 **여러 로봇의 작업과 이동을 동시에 조율하는 문제**가 중요해지고 있습니다.
 
-> `✅ 완료`는 백엔드 구현이 반영된 기능이며,
-> `🟡 통합 검증 중`은 외부 AI 서버 또는 프론트엔드와의 최종 연동이 진행 중인 기능입니다.
+실제 운영 중에는 신규 작업, 배터리 변화, 통로 차단 등으로
+초기에 생성한 계획의 유효성이 계속 달라질 수 있습니다.
+
+LARO는 현재 창고 상태를 기준으로 AI가 실행 계획을 구성하고,
+최적화 Solver와 MAPF를 통해 작업 배정과 이동 계획을 계산한 뒤
+Simulation에서 이를 실행·관제하고 상태 변화 발생 시 재계획합니다.
+
+```text
+Warehouse State
+      ↓
+AI Planning
+      ↓
+Task Assignment / Optimization
+      ↓
+MAPF
+      ↓
+Simulation
+      ↓
+Real-time Monitoring
+      ↓
+Dynamic Replanning
+```
 
 ---
 
 ## 주요 기능
 
-### 1. 창고 Digital Twin 관리
+### Digital Twin 창고 구성
 
-* 창고, 구역, 이동 노드 및 연결 경로 관리
-* 노드 간 거리와 단방향·양방향 통로 모델링
-* 보관·이동·입고·출고·충전 구역 구분
-* 창고 구조 JSON Import 및 통합 레이아웃 조회
-* PostgreSQL의 창고 데이터를 Neo4j 그래프로 동기화
+- `Warehouse · Zone · Node · Edge` 기반 창고 구조 관리
+- Storage, Charging Station, Robot, Inventory 데이터 연계
+- 구성한 Warehouse Graph를 AI Planning과 Simulation에서 동일하게 활용
 
-### 2. 로봇 및 시뮬레이션 관리
+### AI 기반 작업 계획
 
-* 로봇 위치, 배터리 및 가용 상태 관리
-* 입출고 작업 생성과 로봇 할당
-* 시뮬레이션 생성 및 실행 상태 관리
-* 실행 시작·일시정지·재개·초기화·종료
-* Redis 기반 로봇 Runtime 상태 관리
-* WebSocket 기반 로봇·작업 상태 전달
+- 자연어 요청과 실제 창고 상태를 기반으로 Mission 구성
+- 요청 특성에 따른 `Rule / Agent` 처리 경로 분리
+- LLM이 직접 경로를 생성하지 않고 Solver 입력에 필요한 조건을 구조화
 
-### 3. 동적 재계획
-
-* 로봇 장애와 통로 차단 상황을 기반으로 재계획 요청
-* 현재 로봇 상태와 남은 작업 Snapshot 구성
-* FastAPI 재계획 API 연동
-* AI 응답의 작업·로봇·경로·시간표 계약 검증
-* 검증된 계획의 Staging 및 DB 반영
-* 새로운 계획을 Runtime에 설치하고 실행 재개
-* 재계획 결과 및 이력 저장
-
-### 4. 사용자 및 게스트 접근 제어
-
-* JWT 기반 회원가입·로그인·토큰 재발급
-* DB 계정을 생성하지 않는 게스트 Access Token 발급
-* `ROLE_USER`와 `ROLE_GUEST`의 API 접근 범위 분리
-* UUID 기반 게스트 시뮬레이션 소유권 검증
-* 다른 사용자 또는 게스트의 실행 접근 차단
-
----
-
-## 주요 기여
-
-백엔드 3인 분업 중 **창고·그래프·로봇·경로 최적화 연동 영역**을 중심으로 담당했습니다.
-
-| 영역      | 기여 내용                                           |
-| ------- | ----------------------------------------------- |
-| 창고 도메인  | Warehouse·Zone·Node·Edge·ChargingStation API 구현 |
-| 그래프 모델링 | 이동 거리와 단방향·양방향 통로 구조 설계                         |
-| 레이아웃 조회 | 창고 구조와 로봇 정보를 포함한 통합 응답 구현                      |
-| 데이터 연동  | PostgreSQL 데이터를 Neo4j Node·Relationship로 동기화    |
-| 최적화 연동  | Spring Boot–FastAPI 초기 계획·재계획 요청 구조 구현          |
-| 전역 재계획  | AI 계획 검증, Staging, DB 반영 및 Runtime 활성화 구현       |
-| 상태 일관성  | 재계획 과정의 로봇·작업 상태와 실행 계획 갱신                      |
-| 실시간 처리  | Redis 상태 갱신 및 WebSocket 완료 이벤트 구현               |
-| 게스트 모드  | UUID 기반 게스트 JWT와 실행 소유권 격리 구현                   |
-
----
-
-## 핵심 설계
-
-### 관계형 데이터와 그래프 데이터 분리
-
-* **PostgreSQL**: 창고, 로봇, 작업, 시뮬레이션 및 실행 이력 저장
-* **Neo4j**: Node와 Edge 기반 창고 연결 관계 저장
-* **Redis**: 실행 중인 로봇 위치, 상태 및 재생 정보 관리
-
-영속 데이터, 그래프 탐색 데이터, 실시간 상태의 성격에 따라 저장소의 역할을 분리했습니다.
-
-### 재계획 응답 검증
-
-외부 AI 서버의 응답을 즉시 실행 상태에 반영하지 않고 다음 단계를 거치도록 구성했습니다.
+### 다중 로봇 최적화
 
 ```text
-AI 재계획 응답
-→ 계약 및 최신성 검증
-→ 임시 계획 Staging
-→ DB 상태 반영
-→ Runtime 계획 설치
-→ 시뮬레이션 재개
+LLM / Agent
+Mission · Constraints
+        ↓
+Optimization Solver
+작업 배정 · 방문 순서
+        ↓
+MAPF
+충돌을 고려한 이동 계획
+        ↓
+MOVE · WAIT · SERVICE
 ```
 
-잘못된 작업 ID, 로봇 ID, 연결되지 않은 경로, 시간 역전, 노드·엣지 충돌 등이 포함된 계획은 적용 전에 거부합니다.
+> **LLM은 판단하고, Solver는 계산하도록 역할을 분리했습니다.**
 
-### 게스트 실행 격리
+### 실시간 Simulation
 
-게스트에게 모든 API를 공개하지 않고 `ROLE_GUEST` JWT를 발급했습니다.
+- AI Plan 검증 후 Backend 실행 데이터로 변환
+- Robot별 Plan / Step 기반 Simulation Playback
+- Redis 기반 Runtime State 관리
+- WebSocket / STOMP 기반 실시간 로봇 상태 전달
 
-시뮬레이션 실행에는 토큰의 UUID를 `guest_session_id`로 저장하고, Service 계층에서 실행 소유권을 검증해 다른 게스트의 실행 조회와 조작을 차단했습니다.
+### Dynamic Replanning
 
----
+실행 중 신규 작업이나 상태 변화가 발생하면
+현재 실행 상태를 유지하면서 새로운 계획을 생성하고 전환합니다.
 
-## 기술 스택
-
-### Backend
-
-![Java](https://img.shields.io/badge/Java_17-007396?style=flat-square\&logo=openjdk\&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-6DB33F?style=flat-square\&logo=springboot\&logoColor=white)
-![Spring Security](https://img.shields.io/badge/Spring_Security-6DB33F?style=flat-square\&logo=springsecurity\&logoColor=white)
-![Spring Data JPA](https://img.shields.io/badge/Spring_Data_JPA-6DB33F?style=flat-square\&logo=spring\&logoColor=white)
-![Gradle](https://img.shields.io/badge/Gradle-02303A?style=flat-square\&logo=gradle\&logoColor=white)
-
-### Database
-
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square\&logo=postgresql\&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square\&logo=redis\&logoColor=white)
-![Neo4j](https://img.shields.io/badge/Neo4j-4581C3?style=flat-square\&logo=neo4j\&logoColor=white)
-
-### AI·Optimization
-
-`FastAPI` · `NVIDIA cuOpt` · `MAPF`
-
-### Infrastructure·Collaboration
-
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square\&logo=docker\&logoColor=white)
-![Git](https://img.shields.io/badge/Git-F05032?style=flat-square\&logo=git\&logoColor=white)
-![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square\&logo=github\&logoColor=white)
+```text
+RUNNING
+   ↓
+QUIESCING
+   ↓
+REPLANNING
+   ↓
+PENDING_ACTIVATION
+   ↓
+RUNNING
+```
 
 ---
 
 ## 시스템 아키텍처
 
-```mermaid
-flowchart LR
-    USER[사용자·게스트] --> FE[React Frontend]
-    FE --> BE[Spring Boot API Server]
+```text
+┌─────────────────────────────┐
+│        React Frontend       │
+└──────────────┬──────────────┘
+               │ REST / STOMP
+               ▼
+┌─────────────────────────────┐
+│         Spring Boot         │
+│                             │
+│ Auth · Warehouse · Robot    │
+│ Task · Simulation · AI 연동 │
+└───────┬───────────┬─────────┘
+        │           │
+        │           └──────→ Redis
+        │                   Runtime State
+        ▼
+     FastAPI
+        │
+        ▼
+ GPT-5-mini / LangGraph
+        │
+        ▼
+ Optimization Solver
+ cuOpt / OR-Tools
+        │
+        ▼
+       MAPF
 
-    BE --> PG[(PostgreSQL)]
-    BE --> REDIS[(Redis)]
-    BE --> NEO4J[(Neo4j)]
-    BE --> FASTAPI[FastAPI Optimization Server]
 
-    FASTAPI --> CUOPT[NVIDIA cuOpt]
-    FASTAPI --> MAPF[MAPF]
+PostgreSQL
+    │
+    │ AFTER_COMMIT
+    ▼
+  Neo4j
+Warehouse Graph
+```
 
-    BE --> WS[WebSocket]
-    WS --> FE
+### Data Store 역할
+
+| 저장소 | 역할 |
+|---|---|
+| **PostgreSQL** | Warehouse, Robot, Inventory, Task, Scenario 등 영속 데이터 |
+| **Redis** | 로봇 위치·배터리·실행 상태 등 Runtime State |
+| **Neo4j** | Node·Edge와 창고 객체 간 이동·접근 관계 |
+
+---
+
+# 담당 역할 및 기여
+
+팀 내 Backend 개발을 담당하며  
+**창고·로봇·그래프 및 AI 실행 환경 연동 영역**을 구현했습니다.
+
+- Warehouse / Zone / Node / Edge API 설계 및 구현
+- Robot 및 Warehouse Layout 데이터 연동
+- USER / GUEST별 독립적인 Simulation 실행 환경 설계
+- Shared Warehouse → Personal Warehouse Deep Clone 구현
+- Warehouse Resource 소유권 검증 및 접근 제어
+- PostgreSQL → Neo4j Warehouse Graph Sync 구현
+- AI Plan과 Backend 실행 데이터 연동
+- Backend / AI / Frontend 통합 작업 참여
+
+특히 단순 CRUD보다
+
+**다중 사용자 실행 상태 격리**,  
+**PostgreSQL·Neo4j 데이터 일관성**,  
+**AI 결과를 실제 Simulation 실행 데이터로 연결하는 과정**
+
+을 주요 Backend 문제로 다뤘습니다.
+
+---
+
+# 핵심 구현
+
+## 1. 사용자별 Digital Twin 실행 환경 격리
+
+### 문제
+
+초기 구조에서는 여러 사용자가 하나의 Shared Warehouse를 사용했습니다.
+
+```text
+            Shared Warehouse
+          ↙       ↓       ↘
+      User A   User B    Guest
+
+      동일 Inventory / Robot State
+```
+
+동시에 Simulation을 실행하면 한 사용자의 재고·Robot 상태 변화가
+다른 사용자의 실행 환경에 영향을 줄 수 있었습니다.
+
+### 해결
+
+Shared Warehouse를 직접 실행하지 않고
+사용자별 Personal Warehouse를 생성하도록 구조를 변경했습니다.
+
+```text
+Shared Template
+      │
+      ├──→ User A → Personal Warehouse A
+      │
+      ├──→ User B → Personal Warehouse B
+      │
+      └──→ Guest  → Personal Warehouse C
+```
+
+Personal Warehouse 생성 시 다음 실행 데이터를 함께 Deep Clone합니다.
+
+```text
+Warehouse
+Zone
+Node
+Edge
+ChargingStation
+StorageLocation
+WarehouseItem
+Robot
+Scenario
+```
+
+USER는 `user_id`,
+GUEST는 `guest_session_id`를 기준으로 소유권을 검증합니다.
+
+이를 통해 사용자별 Inventory·Robot·Simulation 상태를 독립적으로 유지하고,
+다른 사용자의 `warehouseId`를 직접 요청하는 접근도 차단했습니다.
+
+---
+
+## 2. PostgreSQL과 Neo4j 데이터 일관성
+
+### 문제
+
+Warehouse 데이터를 PostgreSQL에 저장한 뒤
+Neo4j Warehouse Graph를 별도로 생성하는 구조에서는
+
+PostgreSQL Transaction과 Graph Sync 처리 시점에 따라
+두 저장소의 데이터가 서로 달라질 가능성이 있었습니다.
+
+### 해결
+
+PostgreSQL을 기준 데이터로 두고,
+Transaction이 정상적으로 Commit된 이후에만 Graph Sync를 수행했습니다.
+
+```text
+Warehouse 데이터 변경
+        ↓
+PostgreSQL Transaction
+        ↓
+COMMIT
+        ↓
+WarehouseGraphChangedEvent
+        ↓
+AFTER_COMMIT Listener
+        ↓
+GraphSyncService
+        ↓
+Neo4j Warehouse Graph Sync
+```
+
+```java
+@TransactionalEventListener(
+    phase = TransactionPhase.AFTER_COMMIT
+)
+```
+
+이를 통해 **PostgreSQL을 Source of Truth로 유지하면서
+Warehouse 단위 Graph 데이터의 일관성을 관리**했습니다.
+
+---
+
+## 3. AI Plan과 Backend 실행 데이터 연결
+
+AI가 반환한 계획을 그대로 Simulation에 적용하지 않고,
+Backend에서 실행 가능한 상태인지 검증한 뒤 서비스 데이터와 연결합니다.
+
+```text
+FastAPI AI Plan
+       ↓
+READY 상태 확인
+       ↓
+AI Task ID
+       ↓
+Backend Task ID Mapping
+       ↓
+Robot Plan / Step
+       ↓
+Simulation Playback
+```
+
+AI 영역과 서비스 영역이 서로 다른 Task 식별자를 사용하기 때문에
+AI Task와 실제 Backend Task 사이의 Mapping을 구성했습니다.
+
+이를 통해 AI가 생성한 계획을
+Backend의 Task·SimulationRun·Robot 실행 상태와 연결하여
+Simulation Playback에 적용했습니다.
+
+---
+
+# Troubleshooting
+
+## 다중 사용자 Simulation 상태 충돌
+
+**원인**
+
+Shared Warehouse의 Inventory와 Robot 상태를 여러 사용자가 함께 사용했습니다.
+
+**해결**
+
+- Shared Warehouse를 Template으로 변경
+- USER / GUEST별 Personal Warehouse Deep Clone
+- Resource Ownership Validation 적용
+
+**결과**
+
+각 사용자가 독립적인 Warehouse 상태에서 Simulation을 실행하도록 개선했습니다.
+
+---
+
+## DB와 Graph 상태 불일치
+
+**원인**
+
+PostgreSQL 데이터 변경과 Neo4j Graph Sync의 처리 시점이 분리되어 있었습니다.
+
+**해결**
+
+`WarehouseGraphChangedEvent`와 `AFTER_COMMIT Listener`를 적용하여
+PostgreSQL Commit 이후에만 Graph Sync를 수행하도록 변경했습니다.
+
+---
+
+## Backend와 AI의 Replanning 책임 중복
+
+**원인**
+
+초기에는 Backend에도 재계획 로직이 존재했지만,
+AI Planning 기능이 확장되면서 Backend와 AI의 책임이 중복되었습니다.
+
+**해결**
+
+```text
+AI
+→ 계획 생성 · 최적화 · 재계획
+
+Backend
+→ 요청 검증 · 상태 관리 · Plan 적용
+
+Frontend
+→ 실행 상태 시각화
+```
+
+서비스별 책임을 다시 정의하고
+중복된 Backend 재계획 로직을 제거했습니다.
+
+---
+
+# Tech Stack
+
+### Backend
+
+`Java 17` `Spring Boot` `Spring Data JPA`  
+`Spring Security` `WebSocket / STOMP`
+
+### Database
+
+`PostgreSQL` `Redis` `Neo4j`
+
+### AI / Optimization
+
+`FastAPI` `GPT-5-mini` `LangGraph`  
+`NVIDIA cuOpt` `OR-Tools` `MAPF`
+
+### Frontend
+
+`React` `Vite` `JavaScript`
+
+### Infra
+
+`AWS` `Docker` `ECR` `ECS` `S3` `CloudFront`
+
+---
+
+# Documentation
+
+상세 설계와 개발 과정은 별도 문서로 정리했습니다.
+
+| 문서 | 내용 |
+|---|---|
+| [01. 프로젝트 개요](./docs/01-project-overview.md) | 프로젝트 목표 및 역할 |
+| [02. Backend 설계](./docs/02-backend-design.md) | Backend 구조 및 설계 |
+| [03. Warehouse Domain](./docs/03-warehouse-domain.md) | Warehouse·Zone·Node·Edge |
+| [04. Digital Twin Graph](./docs/04-digital-twin-graph.md) | PostgreSQL·Neo4j 연동 |
+| [05. AI Integration](./docs/05-ai-integration.md) | AI Planning 연동 |
+| [06. Multi-user Isolation](./docs/06-guest-access.md) | USER/GUEST 실행 환경 격리 |
+
+---
+
+## Repository
+
+**Portfolio**  
+https://github.com/pbjun2000/digital-twin-warehouse-backend
+
+**Team Backend**  
+https://github.com/kt-aivle-big-project/BE# LARO
+
+> **Digital Twin 기반 자율 창고 운영 및 다중 로봇 작업 최적화 시스템**
+
+LARO(LLM Autonomous Robot Orchestration)는  
+창고·재고·로봇의 현재 상태를 기반으로 AI가 작업 계획을 생성하고,
+다중 로봇의 작업 배정·경로 최적화·실시간 실행·재계획까지 연결하는 창고 운영 시스템입니다.
+
+단순한 로봇 경로 탐색이 아니라,
+
+**Digital Twin → AI Planning → 작업 최적화 → 다중 로봇 이동 계획 → 실시간 관제 → Dynamic Replanning**
+
+의 전체 운영 흐름을 구현했습니다.
+
+> 본 저장소는 팀 프로젝트에서 제가 담당한 **Backend 설계·구현 및 문제 해결 과정**을 중심으로 정리한 개인 포트폴리오입니다.
+
+---
+
+## 프로젝트 개요
+
+물류센터에 다수의 AGV·AMR이 도입되면서
+개별 로봇의 이동보다 **여러 로봇의 작업과 이동을 동시에 조율하는 문제**가 중요해지고 있습니다.
+
+실제 운영 중에는 신규 작업, 배터리 변화, 통로 차단 등으로
+초기에 생성한 계획의 유효성이 계속 달라질 수 있습니다.
+
+LARO는 현재 창고 상태를 기준으로 AI가 실행 계획을 구성하고,
+최적화 Solver와 MAPF를 통해 작업 배정과 이동 계획을 계산한 뒤
+Simulation에서 이를 실행·관제하고 상태 변화 발생 시 재계획합니다.
+
+```text
+Warehouse State
+      ↓
+AI Planning
+      ↓
+Task Assignment / Optimization
+      ↓
+MAPF
+      ↓
+Simulation
+      ↓
+Real-time Monitoring
+      ↓
+Dynamic Replanning
 ```
 
 ---
 
-## 개발 기록
+## 주요 기능
 
-| 단계          | 주요 내용                         | 문서                                                 |
-| ----------- | ----------------------------- | -------------------------------------------------- |
-| 01. 주제 선정   | 후보 주제 비교와 LARO 선정 근거          | [주제 선정 과정](docs/01-topic-selection.md)             |
-| 02. 설계 구체화  | 서비스 흐름, 데이터 저장소와 창고 그래프 설계    | [서비스 및 데이터 설계](docs/02-service-and-data-design.md) |
-| 03. 백엔드 개발  | 개발 환경 구성과 창고 그래프 도메인 구현       | [백엔드 개발 기록](docs/03-backend-development.md)        |
-| 04. 동적 재계획  | 재계획 요청, 계획 검증·반영 및 Runtime 적용 | [동적 재계획 개발 기록](docs/04-dynamic-reoptimization.md)  |
-| 05. 설계 의사결정 | 실시간 위치 저장, 화면 보간과 AI 적용 범위 검토 | [설계 의사결정 기록](docs/05-design-decisions.md)          |
-| 06. 게스트 접근  | 게스트 JWT 인증과 시뮬레이션 실행 소유권 분리   | [게스트 접근 개발 기록](docs/06-guest-access.md)            |
+### Digital Twin 창고 구성
 
-> 동적 재계획 문서는 백엔드 처리 구조를 중심으로 작성되어 있으며,
-> 실제 cuOpt 연동과 통합 테스트 완료 후 결과와 성능 지표를 보완할 예정입니다.
+- `Warehouse · Zone · Node · Edge` 기반 창고 구조 관리
+- Storage, Charging Station, Robot, Inventory 데이터 연계
+- 구성한 Warehouse Graph를 AI Planning과 Simulation에서 동일하게 활용
+
+### AI 기반 작업 계획
+
+- 자연어 요청과 실제 창고 상태를 기반으로 Mission 구성
+- 요청 특성에 따른 `Rule / Agent` 처리 경로 분리
+- LLM이 직접 경로를 생성하지 않고 Solver 입력에 필요한 조건을 구조화
+
+### 다중 로봇 최적화
+
+```text
+LLM / Agent
+Mission · Constraints
+        ↓
+Optimization Solver
+작업 배정 · 방문 순서
+        ↓
+MAPF
+충돌을 고려한 이동 계획
+        ↓
+MOVE · WAIT · SERVICE
+```
+
+> **LLM은 판단하고, Solver는 계산하도록 역할을 분리했습니다.**
+
+### 실시간 Simulation
+
+- AI Plan 검증 후 Backend 실행 데이터로 변환
+- Robot별 Plan / Step 기반 Simulation Playback
+- Redis 기반 Runtime State 관리
+- WebSocket / STOMP 기반 실시간 로봇 상태 전달
+
+### Dynamic Replanning
+
+실행 중 신규 작업이나 상태 변화가 발생하면
+현재 실행 상태를 유지하면서 새로운 계획을 생성하고 전환합니다.
+
+```text
+RUNNING
+   ↓
+QUIESCING
+   ↓
+REPLANNING
+   ↓
+PENDING_ACTIVATION
+   ↓
+RUNNING
+```
+
+---
+
+## 시스템 아키텍처
+
+```text
+┌─────────────────────────────┐
+│        React Frontend       │
+└──────────────┬──────────────┘
+               │ REST / STOMP
+               ▼
+┌─────────────────────────────┐
+│         Spring Boot         │
+│                             │
+│ Auth · Warehouse · Robot    │
+│ Task · Simulation · AI 연동 │
+└───────┬───────────┬─────────┘
+        │           │
+        │           └──────→ Redis
+        │                   Runtime State
+        ▼
+     FastAPI
+        │
+        ▼
+ GPT-5-mini / LangGraph
+        │
+        ▼
+ Optimization Solver
+ cuOpt / OR-Tools
+        │
+        ▼
+       MAPF
+
+
+PostgreSQL
+    │
+    │ AFTER_COMMIT
+    ▼
+  Neo4j
+Warehouse Graph
+```
+
+### Data Store 역할
+
+| 저장소 | 역할 |
+|---|---|
+| **PostgreSQL** | Warehouse, Robot, Inventory, Task, Scenario 등 영속 데이터 |
+| **Redis** | 로봇 위치·배터리·실행 상태 등 Runtime State |
+| **Neo4j** | Node·Edge와 창고 객체 간 이동·접근 관계 |
+
+---
+
+# 담당 역할 및 기여
+
+팀 내 Backend 개발을 담당하며  
+**창고·로봇·그래프 및 AI 실행 환경 연동 영역**을 구현했습니다.
+
+- Warehouse / Zone / Node / Edge API 설계 및 구현
+- Robot 및 Warehouse Layout 데이터 연동
+- USER / GUEST별 독립적인 Simulation 실행 환경 설계
+- Shared Warehouse → Personal Warehouse Deep Clone 구현
+- Warehouse Resource 소유권 검증 및 접근 제어
+- PostgreSQL → Neo4j Warehouse Graph Sync 구현
+- AI Plan과 Backend 실행 데이터 연동
+- Backend / AI / Frontend 통합 작업 참여
+
+특히 단순 CRUD보다
+
+**다중 사용자 실행 상태 격리**,  
+**PostgreSQL·Neo4j 데이터 일관성**,  
+**AI 결과를 실제 Simulation 실행 데이터로 연결하는 과정**
+
+을 주요 Backend 문제로 다뤘습니다.
+
+---
+
+# 핵심 구현
+
+## 1. 사용자별 Digital Twin 실행 환경 격리
+
+### 문제
+
+초기 구조에서는 여러 사용자가 하나의 Shared Warehouse를 사용했습니다.
+
+```text
+            Shared Warehouse
+          ↙       ↓       ↘
+      User A   User B    Guest
+
+      동일 Inventory / Robot State
+```
+
+동시에 Simulation을 실행하면 한 사용자의 재고·Robot 상태 변화가
+다른 사용자의 실행 환경에 영향을 줄 수 있었습니다.
+
+### 해결
+
+Shared Warehouse를 직접 실행하지 않고
+사용자별 Personal Warehouse를 생성하도록 구조를 변경했습니다.
+
+```text
+Shared Template
+      │
+      ├──→ User A → Personal Warehouse A
+      │
+      ├──→ User B → Personal Warehouse B
+      │
+      └──→ Guest  → Personal Warehouse C
+```
+
+Personal Warehouse 생성 시 다음 실행 데이터를 함께 Deep Clone합니다.
+
+```text
+Warehouse
+Zone
+Node
+Edge
+ChargingStation
+StorageLocation
+WarehouseItem
+Robot
+Scenario
+```
+
+USER는 `user_id`,
+GUEST는 `guest_session_id`를 기준으로 소유권을 검증합니다.
+
+이를 통해 사용자별 Inventory·Robot·Simulation 상태를 독립적으로 유지하고,
+다른 사용자의 `warehouseId`를 직접 요청하는 접근도 차단했습니다.
+
+---
+
+## 2. PostgreSQL과 Neo4j 데이터 일관성
+
+### 문제
+
+Warehouse 데이터를 PostgreSQL에 저장한 뒤
+Neo4j Warehouse Graph를 별도로 생성하는 구조에서는
+
+PostgreSQL Transaction과 Graph Sync 처리 시점에 따라
+두 저장소의 데이터가 서로 달라질 가능성이 있었습니다.
+
+### 해결
+
+PostgreSQL을 기준 데이터로 두고,
+Transaction이 정상적으로 Commit된 이후에만 Graph Sync를 수행했습니다.
+
+```text
+Warehouse 데이터 변경
+        ↓
+PostgreSQL Transaction
+        ↓
+COMMIT
+        ↓
+WarehouseGraphChangedEvent
+        ↓
+AFTER_COMMIT Listener
+        ↓
+GraphSyncService
+        ↓
+Neo4j Warehouse Graph Sync
+```
+
+```java
+@TransactionalEventListener(
+    phase = TransactionPhase.AFTER_COMMIT
+)
+```
+
+이를 통해 **PostgreSQL을 Source of Truth로 유지하면서
+Warehouse 단위 Graph 데이터의 일관성을 관리**했습니다.
+
+---
+
+## 3. AI Plan과 Backend 실행 데이터 연결
+
+AI가 반환한 계획을 그대로 Simulation에 적용하지 않고,
+Backend에서 실행 가능한 상태인지 검증한 뒤 서비스 데이터와 연결합니다.
+
+```text
+FastAPI AI Plan
+       ↓
+READY 상태 확인
+       ↓
+AI Task ID
+       ↓
+Backend Task ID Mapping
+       ↓
+Robot Plan / Step
+       ↓
+Simulation Playback
+```
+
+AI 영역과 서비스 영역이 서로 다른 Task 식별자를 사용하기 때문에
+AI Task와 실제 Backend Task 사이의 Mapping을 구성했습니다.
+
+이를 통해 AI가 생성한 계획을
+Backend의 Task·SimulationRun·Robot 실행 상태와 연결하여
+Simulation Playback에 적용했습니다.
+
+---
+
+# Troubleshooting
+
+## 다중 사용자 Simulation 상태 충돌
+
+**원인**
+
+Shared Warehouse의 Inventory와 Robot 상태를 여러 사용자가 함께 사용했습니다.
+
+**해결**
+
+- Shared Warehouse를 Template으로 변경
+- USER / GUEST별 Personal Warehouse Deep Clone
+- Resource Ownership Validation 적용
+
+**결과**
+
+각 사용자가 독립적인 Warehouse 상태에서 Simulation을 실행하도록 개선했습니다.
+
+---
+
+## DB와 Graph 상태 불일치
+
+**원인**
+
+PostgreSQL 데이터 변경과 Neo4j Graph Sync의 처리 시점이 분리되어 있었습니다.
+
+**해결**
+
+`WarehouseGraphChangedEvent`와 `AFTER_COMMIT Listener`를 적용하여
+PostgreSQL Commit 이후에만 Graph Sync를 수행하도록 변경했습니다.
+
+---
+
+## Backend와 AI의 Replanning 책임 중복
+
+**원인**
+
+초기에는 Backend에도 재계획 로직이 존재했지만,
+AI Planning 기능이 확장되면서 Backend와 AI의 책임이 중복되었습니다.
+
+**해결**
+
+```text
+AI
+→ 계획 생성 · 최적화 · 재계획
+
+Backend
+→ 요청 검증 · 상태 관리 · Plan 적용
+
+Frontend
+→ 실행 상태 시각화
+```
+
+서비스별 책임을 다시 정의하고
+중복된 Backend 재계획 로직을 제거했습니다.
+
+---
+
+# Tech Stack
+
+### Backend
+
+`Java 17` `Spring Boot` `Spring Data JPA`  
+`Spring Security` `WebSocket / STOMP`
+
+### Database
+
+`PostgreSQL` `Redis` `Neo4j`
+
+### AI / Optimization
+
+`FastAPI` `GPT-5-mini` `LangGraph`  
+`NVIDIA cuOpt` `OR-Tools` `MAPF`
+
+### Frontend
+
+`React` `Vite` `JavaScript`
+
+### Infra
+
+`AWS` `Docker` `ECR` `ECS` `S3` `CloudFront`
+
+---
+
+# Documentation
+
+상세 설계와 개발 과정은 별도 문서로 정리했습니다.
+
+| 문서 | 내용 |
+|---|---|
+| [01. 프로젝트 개요](./docs/01-project-overview.md) | 프로젝트 목표 및 역할 |
+| [02. Backend 설계](./docs/02-backend-design.md) | Backend 구조 및 설계 |
+| [03. Warehouse Domain](./docs/03-warehouse-domain.md) | Warehouse·Zone·Node·Edge |
+| [04. Digital Twin Graph](./docs/04-digital-twin-graph.md) | PostgreSQL·Neo4j 연동 |
+| [05. AI Integration](./docs/05-ai-integration.md) | AI Planning 연동 |
+| [06. Multi-user Isolation](./docs/06-guest-access.md) | USER/GUEST 실행 환경 격리 |
+
+---
+
+## Repository
+
+**Portfolio Repository**  
+https://github.com/pbjun2000/digital-twin-warehouse-backend
+
+**Team Project**  
+https://github.com/kt-aivle-big-project
