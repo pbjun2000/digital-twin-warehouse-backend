@@ -25,7 +25,7 @@ LARO(LLM Autonomous Robot Orchestration)는
 초기에 생성한 계획의 유효성이 계속 달라질 수 있습니다.
 
 LARO는 현재 창고 상태를 기준으로 AI가 실행 계획을 구성하고,
-최적화 Solver와 MAPF를 통해 작업 배정과 이동 계획을 계산한 뒤
+Optimization Solver와 MAPF를 통해 작업 배정과 이동 계획을 계산한 뒤
 Simulation에서 이를 실행·관제하고 상태 변화 발생 시 재계획합니다.
 
 ```text
@@ -204,45 +204,27 @@ Warehouse Graph
 **PostgreSQL·Neo4j 데이터 일관성**,  
 **AI 결과를 실제 Simulation 실행 데이터로 연결하는 과정**
 
-을 주요 Backend 문제로 다뤘습니다.
+을 주요 Backend 설계 과제로 다뤘습니다.
 
 ---
 
-## 핵심 구현
+## 핵심 설계 및 구현
 
-## 1. 사용자별 Digital Twin 실행 환경 격리
+### 1. 사용자별 Digital Twin 실행 환경 격리
 
-### 문제
-
-초기 구조에서는 여러 사용자가 하나의 Shared Warehouse를 사용했습니다.
-
-```text
-            Shared Warehouse
-          ↙       ↓       ↘
-      User A   User B    Guest
-
-      동일 Inventory / Robot State
-```
-
-동시에 Simulation을 실행하면 한 사용자의 재고·Robot 상태 변화가
-다른 사용자의 실행 환경에 영향을 줄 수 있었습니다.
-
-### 해결
-
-Shared Warehouse를 직접 실행하지 않고
-사용자별 Personal Warehouse를 생성하도록 구조를 변경했습니다.
+여러 사용자가 동일한 Shared Warehouse에서 Simulation을 실행하면
+재고와 Robot 상태가 서로 영향을 받을 수 있기 때문에,
+Shared Warehouse를 Template으로 사용하고 사용자별 실행 환경을 분리했습니다.
 
 ```text
 Shared Template
       │
       ├──→ User A → Personal Warehouse A
-      │
       ├──→ User B → Personal Warehouse B
-      │
       └──→ Guest  → Personal Warehouse C
 ```
 
-Personal Warehouse 생성 시 다음 실행 데이터를 함께 Deep Clone합니다.
+Personal Warehouse 생성 시 실행에 영향을 주는 데이터를 함께 Deep Clone합니다.
 
 ```text
 Warehouse
@@ -257,27 +239,25 @@ Scenario
 ```
 
 USER는 `user_id`,
-GUEST는 `guest_session_id`를 기준으로 소유권을 검증합니다.
+GUEST는 `guest_session_id`를 기준으로 소유권을 관리합니다.
 
-이를 통해 사용자별 Inventory·Robot·Simulation 상태를 독립적으로 유지하고,
-다른 사용자의 `warehouseId`를 직접 요청하는 접근도 차단했습니다.
+Simulation 실행 시에도 Warehouse Ownership을 다시 검증하여
+다른 사용자의 `warehouseId`를 직접 전달하는 방식의 접근을 차단했습니다.
+
+이를 통해 각 사용자의 Inventory·Robot·Simulation 상태를
+독립적으로 유지할 수 있도록 구성했습니다.
 
 ---
 
-## 2. PostgreSQL과 Neo4j 데이터 일관성
+### 2. PostgreSQL과 Neo4j 데이터 일관성
 
-### 문제
+Warehouse의 기준 데이터는 PostgreSQL에서 관리하고,
+Neo4j는 Node·Edge와 공간 객체의 이동·접근 관계를 표현하는
+Graph Projection으로 구성했습니다.
 
-Warehouse 데이터를 PostgreSQL에 저장한 뒤
-Neo4j Warehouse Graph를 별도로 생성하는 구조에서는
-
-PostgreSQL Transaction과 Graph Sync 처리 시점에 따라
-두 저장소의 데이터가 서로 달라질 가능성이 있었습니다.
-
-### 해결
-
-PostgreSQL을 기준 데이터로 두고,
-Transaction이 정상적으로 Commit된 이후에만 Graph Sync를 수행했습니다.
+두 저장소를 직접 동시에 수정하는 방식 대신
+PostgreSQL Transaction이 정상적으로 Commit된 이후에만
+Neo4j Graph Sync가 수행되도록 설계했습니다.
 
 ```text
 Warehouse 데이터 변경
@@ -301,94 +281,140 @@ Neo4j Warehouse Graph Sync
 )
 ```
 
+`WarehouseGraphChangedEvent`는 변경 데이터 전체를 전달하지 않고
+동기화가 필요한 `warehouseId`를 전달하는 Trigger 역할을 합니다.
+
+Graph Sync 시 PostgreSQL의 현재 Warehouse 데이터를 다시 조회하여
+해당 Warehouse Scope의 Graph를 갱신합니다.
+
 이를 통해 **PostgreSQL을 Source of Truth로 유지하면서
-Warehouse 단위 Graph 데이터의 일관성을 관리**했습니다.
+Neo4j Graph를 재생성 가능한 Projection으로 관리**했습니다.
 
 ---
 
-## 3. AI Plan과 Backend 실행 데이터 연결
+### 3. AI Plan과 Backend 실행 데이터 연결
 
-AI가 반환한 계획을 그대로 Simulation에 적용하지 않고,
-Backend에서 실행 가능한 상태인지 검증한 뒤 서비스 데이터와 연결합니다.
+AI Planning Server와 Backend는 서로 다른 실행 모델을 사용하기 때문에
+AI가 반환한 계획을 바로 Simulation에 적용하지 않고
+실제 서비스 데이터와 연결하는 단계를 두었습니다.
 
 ```text
 FastAPI AI Plan
        ↓
 READY 상태 확인
        ↓
-AI Task ID
-       ↓
-Backend Task ID Mapping
+AI Task ID ↔ Backend Task ID
        ↓
 Robot Plan / Step
        ↓
 Simulation Playback
 ```
 
-AI 영역과 서비스 영역이 서로 다른 Task 식별자를 사용하기 때문에
-AI Task와 실제 Backend Task 사이의 Mapping을 구성했습니다.
+Backend에서는 AI Plan이 실행 가능한 `READY` 상태인지 먼저 확인하고,
+AI Task와 실제 Backend Task 사이의 Mapping을 구성합니다.
 
-이를 통해 AI가 생성한 계획을
-Backend의 Task·SimulationRun·Robot 실행 상태와 연결하여
-Simulation Playback에 적용했습니다.
+이후 Robot별 Plan과 Step을
+실제 `SimulationRun` 및 Robot 실행 상태와 연결하여
+`SimulationPlaybackService`에 적용합니다.
+
+이를 통해
+
+```text
+AI Planning
+```
+
+과
+
+```text
+Service Execution
+```
+
+의 책임을 분리하고,
+AI 결과가 서비스의 실제 Task와 연결되지 않은 상태로 실행되는 것을 방지했습니다.
 
 ---
 
 ## Troubleshooting
 
-## 다중 사용자 Simulation 상태 충돌
+### 1. Backend와 AI의 Replanning 책임 중복
+
+**증상**
+
+초기에는 Backend에서 재계획 로직을 처리하는 구조를 구현했지만,
+AI Planning 기능이 확장되면서 Backend와 AI가
+동일한 재계획 책임을 가지는 문제가 발생했습니다.
 
 **원인**
 
-Shared Warehouse의 Inventory와 Robot 상태를 여러 사용자가 함께 사용했습니다.
+기존 Backend 중심 재계획 구조에
+AI Agent 기반 Replanning 기능이 추가되면서
+기존 책임을 유지한 채 기능이 확장되었습니다.
 
-**해결**
+**개선**
 
-- Shared Warehouse를 Template으로 변경
-- USER / GUEST별 Personal Warehouse Deep Clone
-- Resource Ownership Validation 적용
-
-**결과**
-
-각 사용자가 독립적인 Warehouse 상태에서 Simulation을 실행하도록 개선했습니다.
-
----
-
-## DB와 Graph 상태 불일치
-
-**원인**
-
-PostgreSQL 데이터 변경과 Neo4j Graph Sync의 처리 시점이 분리되어 있었습니다.
-
-**해결**
-
-`WarehouseGraphChangedEvent`와 `AFTER_COMMIT Listener`를 적용하여
-PostgreSQL Commit 이후에만 Graph Sync를 수행하도록 변경했습니다.
-
----
-
-## Backend와 AI의 Replanning 책임 중복
-
-**원인**
-
-초기에는 Backend에도 재계획 로직이 존재했지만,
-AI Planning 기능이 확장되면서 Backend와 AI의 책임이 중복되었습니다.
-
-**해결**
+각 서비스의 책임을 다시 정의했습니다.
 
 ```text
 AI
 → 계획 생성 · 최적화 · 재계획
 
 Backend
-→ 요청 검증 · 상태 관리 · Plan 적용
+→ 요청 검증 · 실행 상태 관리 · Plan 적용
 
 Frontend
-→ 실행 상태 시각화
+→ 실행 상태 및 결과 시각화
 ```
 
-서비스별 책임을 다시 정의하고
-중복된 Backend 재계획 로직을 제거했습니다.
+Backend에서 중복되는 재계획 판단 책임을 제거하고,
+AI는 Planning에 집중하고 Backend는 실제 실행 상태와 Plan 적용을 담당하도록 변경했습니다.
+
+---
+
+### 2. Personal Warehouse 복제 후 Scenario 참조 불일치
+
+**증상**
+
+Shared Warehouse를 Personal Warehouse로 Deep Clone한 뒤에도
+Frontend에서 기존 Template의 Scenario ID를 그대로 사용하면
+새롭게 복제된 Warehouse와 Scenario의 관계가 일치하지 않는 문제가 발생할 수 있었습니다.
+
+```text
+Shared Warehouse
+Scenario #10
+      ↓
+Deep Clone
+      ↓
+Personal Warehouse
+Scenario #25
+```
+
+**원인**
+
+Warehouse와 Scenario가 함께 복제되면서 새로운 ID가 생성되지만,
+Frontend가 기존 Template의 Scenario ID를 계속 사용하고 있었습니다.
+
+**개선**
+
+Personal Warehouse 생성 이후
+해당 Warehouse의 Scenario 목록을 다시 조회하고,
+Scenario Code 또는 Name을 기준으로 복제된 Scenario를 다시 연결하도록 변경했습니다.
+
+```text
+Shared Scenario
+      ↓
+Personal Warehouse 생성
+      ↓
+Personal Scenario 조회
+      ↓
+Scenario 재매칭
+      ↓
+Personal Scenario ID
+      ↓
+SimulationRun 생성
+```
+
+이를 통해 Personal Warehouse를 실행하면서
+Template의 Scenario Resource가 함께 사용되는 문제를 방지했습니다.
 
 ---
 
@@ -420,22 +446,22 @@ Frontend
 
 ## Documentation
 
-상세 설계와 개발 과정은 별도 문서로 정리했습니다.
+상세 설계와 구현 내용은 별도 문서로 정리했습니다.
 
 | 문서 | 내용 |
 |---|---|
-| [01. 프로젝트 개요](./docs/01-project-overview.md) | 프로젝트 목표 및 역할 |
-| [02. Backend 설계](./docs/02-backend-design.md) | Backend 구조 및 설계 |
-| [03. Warehouse Domain](./docs/03-warehouse-domain.md) | Warehouse·Zone·Node·Edge |
-| [04. Digital Twin Graph](./docs/04-digital-twin-graph.md) | PostgreSQL·Neo4j 연동 |
-| [05. AI Integration](./docs/05-ai-integration.md) | AI Planning 연동 |
-| [06. Multi-user Isolation](./docs/06-multi-user-isolation.md) | USER/GUEST별 Digital Twin 실행 환경 및 데이터 격리 |
+| [01. Project Overview](./docs/01-project-overview.md) | 프로젝트 구조 및 담당 영역 |
+| [02. Backend Design](./docs/02-backend-design.md) | Backend 책임과 서비스 간 역할 분리 |
+| [03. Warehouse Domain](./docs/03-warehouse-domain.md) | Warehouse·Zone·Node·Edge 설계 |
+| [04. Digital Twin Graph](./docs/04-digital-twin-graph.md) | PostgreSQL·Neo4j Graph Sync |
+| [05. AI Integration](./docs/05-ai-integration.md) | AI Plan과 Backend 실행 데이터 연동 |
+| [06. Multi-user Isolation](./docs/06-multi-user-isolation.md) | 사용자별 Digital Twin 실행 환경 격리 |
 
 ---
 
 ## Repository
 
-**Portfolio**  
+**Portfolio Repository**  
 https://github.com/pbjun2000/digital-twin-warehouse-backend
 
 **Team Project**  
