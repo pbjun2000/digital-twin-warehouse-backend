@@ -50,17 +50,33 @@ Dynamic Replanning
 
 ### Digital Twin 창고 구성
 
-- `Warehouse · Zone · Node · Edge` 기반 창고 구조 관리
-- Storage, Charging Station, Robot, Inventory 데이터 연계
-- 구성한 Warehouse Graph를 AI Planning과 Simulation에서 동일하게 활용
+- 창고 시설과 로봇 이동 지점을 배치하고 `Node · Edge` 기반 이동 경로 구성
+- 입고·출고·충전 설비와 선반을 직접 편집하거나 JSON을 통해 창고 레이아웃 생성
+- 구성한 창고 구조를 AI Planning과 Simulation의 동일한 Digital Twin 실행 환경으로 활용
+
+<p align="center">
+  <img src="./assets/warehouse-editor.png" width="950"/>
+</p>
+
+---
 
 ### AI 기반 작업 계획
 
-- 자연어 요청과 실제 창고 상태를 기반으로 Mission 구성
-- 요청 특성에 따른 `Rule / Agent` 처리 경로 분리
-- LLM이 직접 경로를 생성하지 않고 Solver 입력에 필요한 조건을 구조화
+- 자연어 요청과 실제 창고 상태를 기반으로 실행 가능한 Mission 구성
+- 요청의 형태와 복잡도에 따라 `Rule / Agent` 처리 경로 분리
+- LLM은 요청과 운영 조건을 해석하고, 실제 작업 배정과 경로 계산은 Optimization Solver에 위임
 
-### 다중 로봇 최적화
+<p align="center">
+  <img src="./assets/ai-plan.png" width="650"/>
+</p>
+
+---
+
+### 다중 로봇 작업·경로 최적화
+
+- 여러 작업을 로봇별로 배정하고 작업 수행 순서를 최적화
+- MAPF를 통해 여러 로봇의 이동 경로와 충돌 가능성을 함께 고려
+- 최종 계획을 `MOVE · WAIT · SERVICE` 단위의 실행 가능한 Robot Plan으로 구성
 
 ```text
 LLM / Agent
@@ -70,36 +86,52 @@ Optimization Solver
 작업 배정 · 방문 순서
         ↓
 MAPF
-충돌을 고려한 이동 계획
+다중 로봇 이동 계획
         ↓
 MOVE · WAIT · SERVICE
 ```
 
 > **LLM은 판단하고, Solver는 계산하도록 역할을 분리했습니다.**
 
-### 실시간 Simulation
+---
 
-- AI Plan 검증 후 Backend 실행 데이터로 변환
-- Robot별 Plan / Step 기반 Simulation Playback
-- Redis 기반 Runtime State 관리
-- WebSocket / STOMP 기반 실시간 로봇 상태 전달
+### 실시간 Simulation & Monitoring
+
+- AI가 생성한 계획을 Backend에서 검증한 뒤 실제 Simulation 실행 데이터로 적용
+- 로봇의 위치·배터리·작업 진행 상태와 이동 과정을 실시간으로 확인
+- Task · Robot · Event 정보를 한 화면에서 통합 관제
+
+<p align="center">
+  <img src="./assets/simulation-live-view-readme.png" width="1000"/>
+</p>
+
+---
 
 ### Dynamic Replanning
 
-실행 중 신규 작업이나 상태 변화가 발생하면
-현재 실행 상태를 유지하면서 새로운 계획을 생성하고 전환합니다.
+- 실행 중 운영자의 추가 명령이나 상태 변화를 현재 실행 상태에 반영
+- 기존 실행 상태와 남은 작업을 기준으로 새로운 계획 생성
+- 재계획 결과를 다시 Simulation에 적용하여 변경된 운영 조건으로 실행
 
-```text
-RUNNING
-   ↓
-QUIESCING
-   ↓
-REPLANNING
-   ↓
-PENDING_ACTIVATION
-   ↓
-RUNNING
-```
+**① 운영자 자연어 재계획 요청**
+
+<p align="center">
+  <img src="./assets/replanning-command.png" width="650"/>
+</p>
+
+**② 재계획 결과 Simulation 반영**
+
+<p align="center">
+  <img src="./assets/replanning-result.png" width="1000"/>
+</p>
+
+---
+
+### 사용자별 독립 Simulation
+
+- Shared Warehouse를 기반으로 USER / GUEST별 Personal Warehouse 생성
+- 재고·로봇·시나리오 등 실행 데이터를 사용자별로 독립 관리
+- Warehouse 소유권을 검증하여 사용자 간 Simulation 상태 충돌 방지
 
 ---
 
