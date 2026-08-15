@@ -184,7 +184,7 @@ Warehouse Graph
 
 ---
 
-# 담당 역할 및 기여
+## 담당 역할 및 기여
 
 팀 내 Backend 개발을 담당하며  
 **창고·로봇·그래프 및 AI 실행 환경 연동 영역**을 구현했습니다.
@@ -208,7 +208,7 @@ Warehouse Graph
 
 ---
 
-# 핵심 구현
+## 핵심 구현
 
 ## 1. 사용자별 Digital Twin 실행 환경 격리
 
@@ -334,7 +334,7 @@ Simulation Playback에 적용했습니다.
 
 ---
 
-# Troubleshooting
+## Troubleshooting
 
 ## 다중 사용자 Simulation 상태 충돌
 
@@ -392,7 +392,7 @@ Frontend
 
 ---
 
-# Tech Stack
+## Tech Stack
 
 ### Backend
 
@@ -418,7 +418,7 @@ Frontend
 
 ---
 
-# Documentation
+## Documentation
 
 상세 설계와 개발 과정은 별도 문서로 정리했습니다.
 
@@ -429,7 +429,7 @@ Frontend
 | [03. Warehouse Domain](./docs/03-warehouse-domain.md) | Warehouse·Zone·Node·Edge |
 | [04. Digital Twin Graph](./docs/04-digital-twin-graph.md) | PostgreSQL·Neo4j 연동 |
 | [05. AI Integration](./docs/05-ai-integration.md) | AI Planning 연동 |
-| [06. Multi-user Isolation](./docs/06-guest-access.md) | USER/GUEST 실행 환경 격리 |
+| [06. Multi-user Isolation](./docs/06-multi-user-isolation.md) | USER/GUEST별 Digital Twin 실행 환경 및 데이터 격리 |
 
 ---
 
