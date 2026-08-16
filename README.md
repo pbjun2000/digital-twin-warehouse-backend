@@ -2,6 +2,12 @@
 
 > **Digital Twin 기반 자율 창고 운영 및 다중 로봇 작업 최적화 시스템**
 
+# LARO — Digital Twin Warehouse Backend
+
+> **프로젝트 기간**: 2026.07 ~ 2026.08  
+> **역할**: Backend Developer  
+> **프로젝트 형태**: KT AIVLE School 9기 Big Project
+
 LARO(LLM Autonomous Robot Orchestration)는  
 창고·재고·로봇의 현재 상태를 기반으로 AI가 작업 계획을 생성하고,
 다중 로봇의 작업 배정·경로 최적화·실시간 실행·재계획까지 연결하는 창고 운영 시스템입니다.
