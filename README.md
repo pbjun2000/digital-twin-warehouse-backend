@@ -1,7 +1,7 @@
 # LARO
 
 > **Digital Twin 기반 자율 창고 운영 및 다중 로봇 작업 최적화 시스템**
-> **프로젝트 기간**: 2026.07 ~ 2026.08  
+> **프로젝트 기간**: 2026.07 ~ 2026.08
 > **역할**: Backend Developer  
 > **프로젝트 형태**: KT AIVLE School 9기 Big Project
 
