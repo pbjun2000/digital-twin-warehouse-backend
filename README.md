@@ -402,6 +402,51 @@ Template의 Scenario Resource가 함께 사용되는 문제를 방지했습니�
 
 ---
 
+### 3. BE · AI 간 재고 판정 기준 불일치
+
+**증상**
+
+재고 데이터에서 `quantity = 0`인 항목이 존재하는 상황에서
+실제 사용 가능한 공간이 있음에도 AI Planning이 재고 상태를 잘못 판단해
+계획 생성이 실패하는 문제가 발생했습니다.
+
+```text
+Warehouse Inventory
+        ↓
+Backend 재고 판정
+        ↓
+AI Planning 입력
+        ↓
+재고 상태 오판
+        ↓
+Planning 실패
+```
+
+**원인**
+
+Backend와 AI에서 `quantity = 0`인 데이터를 처리하는 기준이 달라
+동일한 Warehouse 상태를 서로 다르게 판단하고 있었습니다.
+
+**개선**
+
+Backend와 AI의 재고 판정 조건을 확인하고
+`quantity = 0`인 데이터를 동일한 기준으로 처리하도록 수정했습니다.
+
+```text
+Backend
+재고 판정 기준
+        ↓
+동일한 quantity 기준
+        ↓
+AI Planning
+재고 판정 기준
+```
+
+이를 통해 Backend와 AI가 동일한 재고 상태를 기준으로 판단하도록 맞추고,
+시스템 간 데이터 해석 차이로 Planning이 실패하는 문제를 해결했습니다.
+
+---
+
 ## 프로젝트 검증 결과
 
 고부하 시나리오에서 동일한 Optimization Solver를 사용하고
