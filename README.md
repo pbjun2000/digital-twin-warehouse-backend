@@ -195,7 +195,7 @@ Warehouse Graph
 ## 담당 역할 및 기여
 
 팀 내 Backend 개발을 담당하며  
-**창고·로봇·그래프 및 AI 실행 환경 연동 영역**을 구현했습니다.
+**창고·로봇·그래프 및 사용자별 실행 환경 영역**을 구현했습니다.
 
 - Warehouse / Zone / Node / Edge API 설계 및 구현
 - Robot 및 Warehouse Layout 데이터 연동
@@ -203,14 +203,14 @@ Warehouse Graph
 - Shared Warehouse → Personal Warehouse Deep Clone 구현
 - Warehouse Resource 소유권 검증 및 접근 제어
 - PostgreSQL → Neo4j Warehouse Graph Sync 구현
-- AI Plan과 Backend 실행 데이터 연동
+- AI Planning에서 사용할 Warehouse Graph API 및 창고·로봇 데이터 연동
 - Backend / AI / Frontend 통합 작업 참여
 
-특히 단순 CRUD보다
+특히
 
 **다중 사용자 실행 상태 격리**,  
 **PostgreSQL·Neo4j 데이터 일관성**,  
-**AI 결과를 실제 Simulation 실행 데이터로 연결하는 과정**
+**Warehouse 데이터를 AI Planning에서 사용할 수 있도록 연결하는 과정**
 
 을 주요 Backend 설계 과제로 다뤘습니다.
 
@@ -300,45 +300,34 @@ Neo4j Graph를 재생성 가능한 Projection으로 관리**했습니다.
 
 ---
 
-### 3. AI Plan과 Backend 실행 데이터 연결
+### 3. Warehouse Graph API와 AI Planning 데이터 연동
 
-AI Planning Server와 Backend는 서로 다른 실행 모델을 사용하기 때문에
-AI가 반환한 계획을 바로 Simulation에 적용하지 않고
-실제 서비스 데이터와 연결하는 단계를 두었습니다.
-
-```text
-FastAPI AI Plan
-       ↓
-READY 상태 확인
-       ↓
-AI Task ID ↔ Backend Task ID
-       ↓
-Robot Plan / Step
-       ↓
-Simulation Playback
-```
-
-Backend에서는 AI Plan이 실행 가능한 `READY` 상태인지 먼저 확인하고,
-AI Task와 실제 Backend Task 사이의 Mapping을 구성합니다.
-
-이후 Robot별 Plan과 Step을
-실제 `SimulationRun` 및 Robot 실행 상태와 연결하여
-`SimulationPlaybackService`에 적용합니다.
-
-이를 통해
+AI Planning에서 현재 Warehouse의 이동 구조를 사용할 수 있도록
+Node · Edge 기반 Graph 조회 구조를 구성했습니다.
 
 ```text
-AI Planning
+PostgreSQL Warehouse
+        ↓
+WarehouseGraphService
+        ↓
+WarehouseGraphResponse
+        ├─ nodeCode
+        ├─ edgeCode
+        ├─ mapVersion
+        └─ Node / Edge 속성
+                ↓
+           AI Planning
 ```
 
-과
+DB 내부에서는 Numeric PK를 사용하지만,
+Frontend와 AI Planning에서는 `nodeCode`와 `edgeCode`를 기준으로
+Warehouse Map을 식별하도록 분리했습니다.
 
-```text
-Service Execution
-```
+또한 현재 Active Node와 Edge를 기반으로 `mapVersion`을 구성하여
+AI가 사용하는 Warehouse Map의 상태를 구분할 수 있도록 했습니다.
 
-의 책임을 분리하고,
-AI 결과가 서비스의 실제 Task와 연결되지 않은 상태로 실행되는 것을 방지했습니다.
+이를 통해 AI가 별도의 임의 지도 구조를 사용하는 것이 아니라,
+Backend에서 관리하는 Warehouse 데이터를 기준으로 Planning할 수 있도록 연결했습니다.
 
 ---
 
@@ -480,7 +469,7 @@ Agent는 작업량과 로봇 상태를 고려해 2~3대에 작업을 분산했�
 | [02. Backend Design](./docs/02-backend-design.md) | Backend 책임과 서비스 간 역할 분리 |
 | [03. Warehouse Domain](./docs/03-warehouse-domain.md) | Warehouse·Zone·Node·Edge 설계 |
 | [04. Digital Twin Graph](./docs/04-digital-twin-graph.md) | PostgreSQL·Neo4j Graph Sync |
-| [05. AI Integration](./docs/05-ai-integration.md) | AI Plan과 Backend 실행 데이터 연동 |
+| [05. Warehouse-AI Integration](./docs/05-warehouse-ai-integration.md) | Warehouse Graph 및 AI Planning 데이터 연동 |
 | [06. Multi-user Isolation](./docs/06-multi-user-isolation.md) | 사용자별 Digital Twin 실행 환경 격리 |
 
 ---
