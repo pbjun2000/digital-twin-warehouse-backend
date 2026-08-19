@@ -1,7 +1,7 @@
 # 03. Warehouse Domain
 
 > Warehouse Domain은 Frontend Editor, AI Planning, Simulation이  
-> 동일한 Digital Twin 지도를 사용할 수 있도록 창고의 공간 구조와 이동 관계를 관리합니다.
+> 동일한 Digital Twin Warehouse 데이터를 활용할 수 있도록 창고의 공간 구조와 이동 관계를 관리합니다.
 
 ---
 
@@ -28,12 +28,13 @@ Warehouse
 ```
 
 `Warehouse`를 Root로 두고
-Frontend에서 편집하는 지도와 AI·Simulation에서 사용하는 지도가
+Frontend에서 편집하는 지도와 AI Planning·Simulation에서 활용하는 지도가
 같은 Backend 데이터를 기준으로 동작하도록 구성했습니다.
 
 ### Warehouse
 
-Warehouse에는 기본 정보와 함께 실행 환경을 구분하기 위한 정보를 관리합니다.
+Warehouse에는 기본 정보와 함께
+실행 환경을 구분하기 위한 정보를 관리합니다.
 
 ```text
 id
@@ -115,7 +116,8 @@ CHARGING_SLOT
 → Robot 충전 위치
 ```
 
-처럼 같은 좌표 데이터라도 역할이 다릅니다.
+처럼 같은 좌표 데이터라도
+역할에 따라 서로 다른 의미를 갖도록 구성했습니다.
 
 ### Routing 속성
 
@@ -186,15 +188,15 @@ A_TO_B
 B_TO_A
 ```
 
-거리뿐 아니라 속도 제한, 예상 이동 시간, Cost를 별도로 관리하여
-AI Planning과 경로 계산에서 사용할 수 있는 이동 조건을 표현했습니다.
+거리뿐 아니라 속도 제한, 예상 이동 시간, Cost를 함께 관리하여
+Warehouse 이동 구조에서 사용할 수 있는 이동 조건을 표현했습니다.
 
 ---
 
 ## 3. DB PK와 Map 식별자 분리
 
-JPA Entity 내부에서는 숫자 PK를 사용하지만
-Frontend와 AI에 전달하는 Warehouse Map에서는 별도의 Code를 사용합니다.
+JPA Entity 내부에서는 Numeric PK를 사용하지만
+Frontend와 AI Planning에 제공하는 Warehouse Map에서는 별도의 Code를 사용합니다.
 
 ```text
 Database
@@ -208,7 +210,7 @@ Node Code = R0_0
 Edge Code = H0_0
 ```
 
-즉,
+전체 구조는 다음과 같습니다.
 
 ```text
 PostgreSQL
@@ -217,15 +219,14 @@ Numeric PK
 Spring Boot
 nodeCode / edgeCode
     ↓
-Frontend / AI
+Frontend / AI Planning
 ```
 
-구조입니다.
+DB 내부 식별자와 외부 Map 식별자를 분리하여
+Frontend나 AI가 DB PK에 직접 의존하지 않고
+Warehouse Map을 사용할 수 있도록 했습니다.
 
-DB 내부 식별자와 외부 Map 식별자를 분리하면
-DB PK에 의존하지 않고 Warehouse Map을 다룰 수 있습니다.
-
-또한 Warehouse Editor에서 Layout을 수정할 때도
+Warehouse Editor에서 Layout을 수정할 때도
 `nodeCode`와 `edgeCode`를 기준으로 기존 데이터를 식별합니다.
 
 ---
@@ -250,7 +251,7 @@ Map
 ```
 
 Backend에서는 Node와 Edge만 저장하지 않고
-Simulation에 필요한 Warehouse Resource를 함께 구성합니다.
+Warehouse에서 사용하는 관련 Resource도 함께 구성합니다.
 
 ```text
 Warehouse JSON
@@ -268,8 +269,8 @@ Robot
 WarehouseGraphChangedEvent
 ```
 
-Import가 완료되면 생성된 Warehouse를
-바로 Editor와 Simulation에서 사용할 수 있도록 했습니다.
+Import 이후 생성된 Warehouse 구조를
+Editor와 Simulation에서 사용할 수 있도록 구성했습니다.
 
 ---
 
@@ -301,14 +302,15 @@ nodeCode / edgeCode 비교
 예를 들어 Node의 좌표만 수정된 경우
 새로운 Node를 만드는 대신 기존 Entity를 갱신합니다.
 
-이 방식으로 Editor 변경 과정에서도
+이 방식으로 Layout 변경 과정에서도
 기존 Resource와 연결된 식별 관계를 최대한 유지했습니다.
 
 ---
 
 ## 6. Node 삭제와 실행 이력 보존
 
-Node는 단독 Resource가 아니라 여러 Domain에서 참조됩니다.
+Node는 단독 Resource가 아니라
+여러 Domain에서 참조됩니다.
 
 ```text
 Node
@@ -374,8 +376,8 @@ Retired Node 유지
 Active Node 사용
 ```
 
-현재 운영 지도와 과거 실행 데이터를 분리하여
-Layout 변경으로 이전 실행 이력이 깨지는 것을 방지했습니다.
+현재 Warehouse Map에서의 사용 여부와
+과거 실행 데이터의 참조 관계를 분리하여 관리했습니다.
 
 ---
 
@@ -404,13 +406,13 @@ WarehouseLayoutResponse
 ```
 
 Warehouse Editor와 Simulation 화면에서 필요한
-동일 Warehouse Scope의 데이터를 한 번에 조회할 수 있습니다.
+동일 Warehouse Scope의 데이터를 한 번에 조회할 수 있도록 구성했습니다.
 
 ---
 
 ### Graph API
 
-AI Planning에서는 이동 구조를 사용할 수 있도록
+AI Planning에서 현재 Warehouse의 이동 구조를 활용할 수 있도록
 별도의 Graph 조회 API를 제공합니다.
 
 ```http
@@ -441,8 +443,8 @@ WarehouseGraphResponse
         └─ AI Planning
 ```
 
-Frontend와 AI가 동일한 Warehouse Map을
-Backend를 통해 조회하도록 구성했습니다.
+Backend에서 관리하는 Warehouse 구조를
+Frontend와 AI Planning에서 공통으로 활용할 수 있도록 제공했습니다.
 
 ---
 
@@ -470,8 +472,11 @@ mapVersion 변경
 
 따라서 Map 내용이 변경되면 Version도 함께 달라집니다.
 
-AI Planning 시 사용한 Map과
-현재 Backend Warehouse Map을 구분할 수 있는 기준으로 활용할 수 있습니다.
+현재 Backend의 Warehouse Map과
+외부에서 사용 중인 Map을 구분할 수 있는 식별 정보로 활용할 수 있습니다.
+
+AI Planning에서의 Warehouse Graph 활용 방식은  
+[05. Warehouse-AI Integration](./05-warehouse-ai-integration.md)에서 설명합니다.
 
 ---
 
@@ -499,7 +504,8 @@ AI Planning 시 사용한 Map과
 /api/warehouse-edges
 ```
 
-Zone, Node, Edge는 각각 생성·조회·수정·삭제 API를 제공합니다.
+Zone, Node, Edge는 각각
+생성·조회·수정·삭제 API를 제공합니다.
 
 ---
 
@@ -516,9 +522,8 @@ Zone, Node, Edge는 각각 생성·조회·수정·삭제 API를 제공합니다
 | `WarehouseZoneService` | Warehouse Zone 관리 |
 | `WarehouseTemplateCloneService` | Personal Warehouse 생성 |
 
-Warehouse Domain의 핵심은
-단순 CRUD보다 **하나의 Warehouse Map을 Editor·AI·Simulation이 공통으로 사용하면서,
-Layout 변경과 기존 실행 데이터의 관계를 안정적으로 유지하는 것**에 두었습니다.
+Warehouse Domain에서는 단순 CRUD뿐 아니라
+**하나의 Warehouse 데이터를 Editor · AI Planning · Simulation에서 공통으로 사용할 수 있는 구조를 만드는 것**을 중심으로 구현했습니다.
 
 ---
 
@@ -527,7 +532,7 @@ Layout 변경과 기존 실행 데이터의 관계를 안정적으로 유지하�
 - [01. Project Overview](./01-project-overview.md)
 - [02. Backend Design](./02-backend-design.md)
 - [04. Digital Twin Graph](./04-digital-twin-graph.md)
-- [05. AI Integration](./05-ai-integration.md)
+- [05. Warehouse-AI Integration](./05-warehouse-ai-integration.md)
 - [06. Multi-user Isolation](./06-multi-user-isolation.md)
 
 ---
