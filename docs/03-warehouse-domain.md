@@ -235,45 +235,36 @@ DB 식별자와 Map 식별자를 분리했습니다.
 
 ---
 
-## 4. JSON 기반 Warehouse 구조 연동
+## 4. Warehouse 생성
 
-Frontend에서 Warehouse를 직접 구성하는 것 외에도
-JSON 형태의 Map 데이터를 Backend에 전달할 수 있도록 구성했습니다.
+일반 Warehouse 생성은
+Spring Boot API를 통해 처리합니다.
 
 ```http
-POST /api/warehouses/import
+POST /api/warehouses
 ```
 
-입력 데이터는 크게 다음과 같은 구조를 가집니다.
+기본적인 흐름은 다음과 같습니다.
 
 ```text
-Warehouse 기본 정보
-        +
-Map
- ├─ Nodes
- └─ Edges
+Client Request
+      ↓
+WarehouseController
+      ↓
+WarehouseService
+      ↓
+WarehouseRepository
+      ↓
+PostgreSQL
 ```
 
-Warehouse 구조를 구성할 때는
-Node와 Edge뿐 아니라 관련 Warehouse Resource도 함께 연결됩니다.
-
-```text
-Warehouse
-    ↓
-Zone / Node / Edge
-    ↓
-ChargingStation
-StorageLocation
-    ↓
-Inventory / Robot
-```
-
-이를 통해 JSON 기반으로 전달된 창고 구조를
-Backend의 Warehouse Domain 데이터로 사용할 수 있도록 연동했습니다.
+Warehouse 생성 시 이름, 크기, 위치, 상태 등
+창고의 기본 정보를 저장하고
+이후 Zone · Node · Edge 등의 Resource를 연결할 수 있도록 구성했습니다.
 
 ---
 
-## 5. Warehouse Layout
+## 5. Warehouse Layout 조회
 
 Frontend에서 Warehouse Editor와 Simulation 화면을 구성할 때
 Zone, Node, Edge, Robot 데이터를 각각 호출하지 않도록
@@ -295,6 +286,8 @@ WarehouseLayoutResponse
  └─ Robots
 ```
 
+전체 흐름은 다음과 같습니다.
+
 ```text
 Frontend
     ↓
@@ -314,30 +307,33 @@ Robot
 
 ---
 
-## 6. Warehouse Layout 수정
+## 6. Warehouse Layout 연동
 
-Warehouse Editor에서 변경된 Layout은
-다음 API를 통해 Backend에 반영합니다.
+Frontend Editor에서 변경된 Warehouse 구조는
+Backend의 Warehouse 데이터와 연결됩니다.
 
 ```http
 PUT /api/warehouses/{warehouseId}/layout
 ```
 
 Node와 Edge는 외부 Map에서 사용하는 Code를 기준으로
-기존 데이터와 요청 데이터를 구분합니다.
+Warehouse 데이터를 식별합니다.
 
 ```text
-현재 Warehouse 데이터
-        +
-Editor 요청 데이터
-        ↓
-nodeCode / edgeCode 기준 식별
-        ↓
-Warehouse Layout 반영
+Frontend Editor
+      ↓
+Node / Edge 정보
+      ↓
+nodeCode / edgeCode
+      ↓
+Spring Boot
+      ↓
+Warehouse Layout
 ```
 
-이를 통해 Frontend Editor에서 구성한
-Node · Edge 기반 창고 구조를 Backend 데이터와 연결했습니다.
+이를 통해 Frontend에서 편집한
+Node · Edge 기반 창고 구조를
+Backend의 Warehouse 데이터와 연결할 수 있도록 구성했습니다.
 
 ---
 
@@ -396,9 +392,8 @@ Backend가 관리하는 Warehouse 이동 데이터를 활용할 수 있도록 �
 | `POST` | `/api/warehouses` | Warehouse 생성 |
 | `PATCH` | `/api/warehouses/{id}` | Warehouse 정보 수정 |
 | `DELETE` | `/api/warehouses/{id}` | Warehouse 삭제 |
-| `POST` | `/api/warehouses/import` | JSON 기반 Warehouse Import |
 | `GET` | `/api/warehouses/{id}/layout` | Warehouse Layout 통합 조회 |
-| `PUT` | `/api/warehouses/{id}/layout` | Warehouse Layout 수정 |
+| `PUT` | `/api/warehouses/{id}/layout` | Warehouse Layout 연동 |
 | `GET` | `/api/warehouses/{id}/graph` | Node · Edge Graph 조회 |
 
 ### Warehouse Resource
@@ -419,8 +414,7 @@ Zone, Node, Edge는 각각
 | Component | 역할 |
 |---|---|
 | `WarehouseService` | Warehouse 기본 정보 관리 |
-| `WarehouseImportService` | JSON 기반 Warehouse 구조 연동 |
-| `WarehouseLayoutService` | Warehouse Layout 조회 및 수정 |
+| `WarehouseLayoutService` | Warehouse Layout 조회 및 연동 |
 | `WarehouseGraphService` | Node · Edge 기반 Graph 데이터 제공 |
 | `WarehouseNodeService` | Warehouse Node 관리 |
 | `WarehouseEdgeService` | Warehouse Edge 및 이동 관계 관리 |
