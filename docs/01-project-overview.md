@@ -104,7 +104,7 @@ Redis와 Neo4j는 각각 Runtime State와 Graph 탐색이라는 목적에 맞게
 ## 5. 담당 영역
 
 팀 내 Backend 개발을 담당하며  
-**Warehouse · Robot · Graph와 사용자별 실행 환경 영역**을 구현했습니다.
+**Warehouse · Robot · Graph와 사용자별 실행 환경 영역**을 중심으로 구현했습니다.
 
 ### Warehouse Domain
 
@@ -112,7 +112,6 @@ Redis와 Neo4j는 각각 Runtime State와 Graph 탐색이라는 목적에 맞게
 - Charging Station 및 Storage 데이터 연동
 - Robot 및 Warehouse Layout 데이터 연동
 - Warehouse Layout 통합 조회
-- JSON 기반 Warehouse 구조 구성
 
 ### Digital Twin Graph
 
@@ -132,7 +131,6 @@ Redis와 Neo4j는 각각 Runtime State와 Graph 탐색이라는 목적에 맞게
 
 - AI Planning에서 활용할 Node · Edge 기반 Warehouse Graph API 구현
 - DB Numeric PK와 외부 `nodeCode` / `edgeCode` 식별 구조 분리
-- 현재 Warehouse Map을 구분하기 위한 `mapVersion` 제공
 - Backend / AI / Frontend 통합 과정에서 Warehouse 데이터 연동 참여
 
 세부 구현은 각 기술 문서에서 별도로 정리했습니다.
