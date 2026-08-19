@@ -300,8 +300,8 @@ Neo4j Graph를 재생성 가능한 Projection으로 관리**했습니다.
 
 ### 3. Warehouse Graph API 및 AI Planning 데이터 제공
 
-AI Planning에서 현재 Warehouse의 이동 구조를 사용할 수 있도록
-Node · Edge 기반 Graph 조회 구조를 구성했습니다.
+AI Planning에서 현재 Warehouse의 이동 구조를 활용할 수 있도록
+Node · Edge 기반 Graph 조회 API를 구현했습니다.
 
 ```text
 PostgreSQL Warehouse
@@ -311,21 +311,10 @@ WarehouseGraphService
 WarehouseGraphResponse
         ├─ nodeCode
         ├─ edgeCode
-        ├─ mapVersion
         └─ Node / Edge 속성
                 ↓
            AI Planning
 ```
-
-DB 내부에서는 Numeric PK를 사용하지만,
-Frontend와 AI Planning에서는 `nodeCode`와 `edgeCode`를 기준으로
-Warehouse Map을 식별하도록 분리했습니다.
-
-또한 현재 Active Node와 Edge를 기반으로 `mapVersion`을 구성하여
-AI가 사용하는 Warehouse Map의 상태를 구분할 수 있도록 했습니다.
-
-이를 통해 AI가 별도의 임의 지도 구조를 사용하는 것이 아니라,
-Backend가 관리하는 현재 Warehouse 구조를 AI Planning에서 활용할 수 있도록 Graph API로 제공했습니다.
 
 ---
 
