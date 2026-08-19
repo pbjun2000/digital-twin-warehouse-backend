@@ -8,8 +8,6 @@
 > 
 > **프로젝트 형태**: KT AIVLE School 9기 Big Project
 
-# LARO — Digital Twin Warehouse Backend
-
 LARO(LLM Autonomous Robot Orchestration)는  
 창고·재고·로봇의 현재 상태를 기반으로 AI가 작업 계획을 생성하고,
 다중 로봇의 작업 배정·경로 최적화·실시간 실행·재계획까지 연결하는 창고 운영 시스템입니다.
@@ -203,7 +201,7 @@ Warehouse Graph
 - Shared Warehouse → Personal Warehouse Deep Clone 구현
 - Warehouse Resource 소유권 검증 및 접근 제어
 - PostgreSQL → Neo4j Warehouse Graph Sync 구현
-- AI Planning에서 사용할 Warehouse Graph API 및 창고·로봇 데이터 연동
+- AI Planning에서 활용할 Warehouse Graph API 구현
 - Backend / AI / Frontend 통합 작업 참여
 
 특히
@@ -300,7 +298,7 @@ Neo4j Graph를 재생성 가능한 Projection으로 관리**했습니다.
 
 ---
 
-### 3. Warehouse Graph API와 AI Planning 데이터 연동
+### 3. Warehouse Graph API 및 AI Planning 데이터 제공
 
 AI Planning에서 현재 Warehouse의 이동 구조를 사용할 수 있도록
 Node · Edge 기반 Graph 조회 구조를 구성했습니다.
@@ -327,7 +325,7 @@ Warehouse Map을 식별하도록 분리했습니다.
 AI가 사용하는 Warehouse Map의 상태를 구분할 수 있도록 했습니다.
 
 이를 통해 AI가 별도의 임의 지도 구조를 사용하는 것이 아니라,
-Backend에서 관리하는 Warehouse 데이터를 기준으로 Planning할 수 있도록 연결했습니다.
+Backend가 관리하는 현재 Warehouse 구조를 AI Planning에서 활용할 수 있도록 Graph API로 제공했습니다.
 
 ---
 
@@ -433,7 +431,7 @@ Agent는 작업량과 로봇 상태를 고려해 2~3대에 작업을 분산했�
 
 ---
 
-## Tech Stack
+## Project Tech Stack
 
 ### Backend
 
