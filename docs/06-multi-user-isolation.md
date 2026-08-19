@@ -336,11 +336,13 @@ Personal Warehouse를 기준으로 분리합니다.
 | `WarehouseTemplateCloneService` | Shared Template 기반 Personal Warehouse Deep Clone |
 | `Warehouse` | Shared 여부와 USER / GUEST 소유 관계 관리 |
 | `WarehouseService` | Personal Warehouse 생성 및 Warehouse 정책 처리 |
+| `SimulationRunService` | Simulation 실행 시 Shared Warehouse 차단 및 소유권 검증 |
 | `WarehouseGraphChangedEvent` | Personal Warehouse 생성 후 Graph Sync Trigger |
 | `GraphSyncService` | Warehouse Scope 기준 Neo4j Graph 동기화 |
 
-인증 및 Simulation 영역의 기존 기능과 연동하여
-요청자 정보를 확인하고 실행 시 Warehouse 소유권을 검증하도록 구성했습니다.
+인증 영역에서 제공되는 요청자 정보를 활용해
+Personal Warehouse의 소유 관계를 구분하고,
+Simulation 실행 시 실제 Warehouse 소유권을 다시 검증하도록 구성했습니다.
 
 Multi-user Isolation에서 중점을 둔 부분은
 Guest 로그인 기능 자체가 아니라,
@@ -348,7 +350,6 @@ Guest 로그인 기능 자체가 아니라,
 **동일한 Warehouse Template에서 시작하더라도  
 실제 Digital Twin 실행 데이터는 사용자별로 공유하지 않도록  
 Warehouse Resource의 경계를 분리하는 것**이었습니다.
-
 ---
 
 ## 관련 문서
