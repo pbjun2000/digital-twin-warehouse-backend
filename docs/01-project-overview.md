@@ -11,7 +11,7 @@ LARO(LLM Autonomous Robot Orchestration)는
 여러 로봇의 작업 배정과 이동 계획을 최적화하여 Simulation으로 실행·관제하는 시스템입니다.
 
 운영 중 작업 조건이나 로봇 상태가 변경되면
-현재 실행 상태를 기준으로 계획을 다시 구성할 수 있도록 설계했습니다.
+현재 실행 상태를 반영해 계획을 다시 구성할 수 있도록 설계했습니다.
 
 ```text
 Digital Twin
@@ -34,7 +34,7 @@ Dynamic Replanning
 ## 2. 해결하고자 한 문제
 
 다수의 로봇이 하나의 창고에서 작업하면
-각 로봇의 최단 경로만 계산하는 것으로는 전체 운영을 조율하기 어렵습니다.
+각 로봇의 최단 경로만 계산하는 것만으로는 전체 운영을 조율하기 어렵습니다.
 
 실제 실행 중에는 다음과 같은 상태가 계속 변합니다.
 
@@ -56,7 +56,7 @@ Dynamic Replanning
 사용자 요청 / 작업 정보
         ↓
 Spring Boot
-Warehouse · Robot · Task 상태 구성
+Warehouse · Robot · Task 상태 관리
         ↓
 FastAPI AI Planning Server
         ↓
@@ -71,18 +71,16 @@ MAPF
 MOVE · WAIT · SERVICE
         ↓
 Spring Boot
-Plan 검증 및 실행 데이터 연결
-        ↓
-Simulation Playback
+Plan 검증 및 Simulation 적용
         ↓
 Runtime State
         ↓
 Frontend 실시간 관제
 ```
 
-AI가 생성한 결과를 바로 실행하지 않고,
-Backend에서 실제 Task 및 Simulation 데이터와 연결한 뒤
-실행 가능한 Plan을 Simulation에 적용합니다.
+Frontend, Backend, AI Planning Server가 각각 역할을 나누고,
+Backend가 관리하는 Warehouse와 Robot 데이터를 기준으로
+Planning과 Simulation이 동일한 실행 환경을 사용하도록 구성했습니다.
 
 ---
 
@@ -106,34 +104,36 @@ Redis와 Neo4j는 각각 Runtime State와 Graph 탐색이라는 목적에 맞게
 ## 5. 담당 영역
 
 팀 내 Backend 개발을 담당하며  
-**Warehouse · Robot · Graph와 AI 실행 환경 연동 영역**을 구현했습니다.
+**Warehouse · Robot · Graph와 사용자별 실행 환경 영역**을 구현했습니다.
 
 ### Warehouse Domain
 
 - Warehouse / Zone / Node / Edge API 설계 및 구현
 - Charging Station 및 Storage 데이터 연동
+- Robot 및 Warehouse Layout 데이터 연동
 - Warehouse Layout 통합 조회
-- JSON 기반 Warehouse 구조 연동
+- JSON 기반 Warehouse 구조 구성
 
 ### Digital Twin Graph
 
 - PostgreSQL Warehouse 데이터와 Neo4j Graph 연동
-- `WarehouseGraphChangedEvent` 기반 Graph Sync
-- Transaction Commit 이후 Neo4j 동기화
+- `WarehouseGraphChangedEvent` 기반 Graph Sync 구현
+- Transaction Commit 이후 Neo4j가 동기화되도록 `AFTER_COMMIT` 구조 적용
+- Warehouse 단위 Graph Scope 구성
 
 ### Multi-user Simulation
 
 - Shared Warehouse 기반 Personal Warehouse 생성
 - USER / GUEST별 독립적인 실행 환경 구성
-- Warehouse Resource 소유권 검증
-- Personal Warehouse별 실행 데이터 분리
+- Warehouse Resource 소유권 검증 및 접근 제어
+- Zone · Node · Edge · Inventory · Robot · Scenario 등 실행 데이터 분리
 
-### AI / Service Integration
+### Warehouse / AI Data Integration
 
-- AI Plan과 Backend 실행 데이터 연결
-- AI Task와 Backend Task Mapping
-- Simulation 실행 구조 연동
-- Backend / AI / Frontend 통합 작업 참여
+- AI Planning에서 활용할 Node · Edge 기반 Warehouse Graph API 구현
+- DB Numeric PK와 외부 `nodeCode` / `edgeCode` 식별 구조 분리
+- 현재 Warehouse Map을 구분하기 위한 `mapVersion` 제공
+- Backend / AI / Frontend 통합 과정에서 Warehouse 데이터 연동 참여
 
 세부 구현은 각 기술 문서에서 별도로 정리했습니다.
 
@@ -146,7 +146,7 @@ Redis와 Neo4j는 각각 Runtime State와 Graph 탐색이라는 목적에 맞게
 | [02. Backend Design](./02-backend-design.md) | Backend 책임과 서비스 간 역할 분리 |
 | [03. Warehouse Domain](./03-warehouse-domain.md) | Warehouse·Zone·Node·Edge 설계 |
 | [04. Digital Twin Graph](./04-digital-twin-graph.md) | PostgreSQL·Neo4j Graph Sync |
-| [05. AI Integration](./05-ai-integration.md) | AI Plan과 Backend 실행 데이터 연동 |
+| [05. Warehouse-AI Integration](./05-warehouse-ai-integration.md) | Warehouse Graph 및 AI Planning 데이터 제공 |
 | [06. Multi-user Isolation](./06-multi-user-isolation.md) | 사용자별 Digital Twin 실행 환경 격리 |
 
 ---
