@@ -60,6 +60,9 @@ Warehouse · Robot · Task 상태 관리
         ↓
 FastAPI AI Planning Server
         ↓
+요청 분류 · Routing
+Rule / Agent 처리 또는 Human Review 분기
+        ↓
 Mission · Constraints
         ↓
 Optimization Solver
@@ -90,7 +93,7 @@ Planning과 Simulation이 동일한 실행 환경을 사용하도록 구성했�
 |---|---|
 | **Frontend** | 창고 편집, AI 요청, Simulation 및 Robot 상태 시각화 |
 | **Spring Boot** | Warehouse·Robot·Task 관리, 권한 검증, AI 연동, Simulation 실행 |
-| **AI Planning** | 자연어 요청 해석, Mission·Constraint 구성, 작업 최적화 및 재계획 |
+| **AI Planning** | 자연어 요청 해석, Rule/Agent Routing 및 Human Review 분기, Mission·Constraint 구성, 작업 최적화 및 재계획 |
 | **Optimization / MAPF** | Robot 작업 배정, 수행 순서 및 다중 로봇 이동 계획 계산 |
 | **PostgreSQL** | Warehouse, Robot, Inventory, Task, Scenario 등 영속 데이터 |
 | **Redis** | Robot 위치·배터리·실행 상태 등 Runtime State |
