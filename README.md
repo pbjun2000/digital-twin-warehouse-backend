@@ -69,7 +69,7 @@ Dynamic Replanning
 ### AI 기반 작업 계획
 
 - 자연어 요청과 실제 창고 상태를 기반으로 실행 가능한 Mission 구성
-- 요청의 형태와 복잡도에 따라 `Rule / Agent` 처리 경로 분리
+- 요청의 형태와 복잡도에 따라 Rule / Agent 처리 또는 Human Review로 분기
 - LLM은 요청과 운영 조건을 해석하고, 실제 작업 배정과 경로 계산은 Optimization Solver에 위임
 
 <p align="center">
