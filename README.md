@@ -53,6 +53,13 @@ Simulation에서 이를 실행·관제하고 상태 변화 발생 시 재계획�
 
 ---
 
+## 개발 전략
+
+제한된 프로젝트 기간 안에서 Warehouse State → AI Planning → Simulation으로 이어지는 핵심 실행 흐름을 우선 연결했습니다. 
+이후 사용자별 실행 환경과 Dynamic Replanning으로 범위를 확장하고, 
+최종적으로 Rule/Agent 방식의 실행 결과를 비교해 작업 분산 효과를 검증했습니다.
+
+---
 ## 주요 기능
 
 ### Digital Twin 창고 구성
