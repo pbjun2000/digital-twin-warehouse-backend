@@ -409,7 +409,7 @@ Personal Scenario ID
 SimulationRun 생성
 ```
 
-이를 통해 SimulationRun이 Personal Warehouse에 복제된 Scenario ID를 사용하도록 수정하고, 기존 Template Scenario ID가 실행 과정에서 잘못 사용되는 문제를 방지했습니다.
+이를 통해 SimulationRun이 Personal Warehouse에 복제된 Scenario ID를 사용하도록 수정했습니다.
 
 ---
 
