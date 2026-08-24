@@ -6,28 +6,40 @@
 
 ## 1. 프로젝트 소개
 
-LARO(LLM Autonomous Robot Orchestration)는  
-창고·재고·로봇의 현재 상태를 기반으로 작업 계획을 생성하고,
-여러 로봇의 작업 배정과 이동 계획을 최적화하여 Simulation으로 실행·관제하는 시스템입니다.
+LARO(LLM Autonomous Robot Orchestration)는
+사용자의 작업 요청과 창고·재고·로봇의 현재 상태를 바탕으로 실행 가능한 작업 계획을 생성하고,
+NVIDIA cuOpt와 MAPF를 통해 여러 로봇의 작업 배정·수행 순서·이동 계획을 최적화하여 Simulation으로 실행·관제하는 시스템입니다.
 
-운영 중 작업 조건이나 로봇 상태가 변경되면
-현재 실행 상태를 반영해 계획을 다시 구성할 수 있도록 설계했습니다.
+운영 중 작업 조건이나 로봇 상태가 변경되면, 실행 중 갱신된 Runtime State를 다시 Planning에 반영하여 재계획할 수 있도록 구성했습니다.
 
 ```text
-Digital Twin
-     ↓
+사용자 요청 / 작업 정보
+        ↓
 AI Planning
+Mission · Constraints
      ↓
-Task Optimization
+Optimization Solver
+NVIDIA cuOpt
+작업 배정 · 수행 순서
      ↓
-Multi-Robot Path Planning
+MAPF
+충돌 없는 다중 로봇 이동 계획
      ↓
 Simulation
+실행 · 관제
      ↓
-Real-time Monitoring
+Runtime State
+위치 · 배터리 · 작업 · 이벤트
      ↓
-Dynamic Replanning
+Replanning
+현재 상태 기반 재계획
+     └────────→ AI Planning
+
+Digital Twin State
+Warehouse · Robot · WarehouseItem · Task · Node/Edge · Runtime
 ```
+
+Planning과 Simulation은 동일한 Digital Twin State를 참조하며, 실행 중 변경된 Runtime State를 다시 Replanning에 반영합니다.
 
 ---
 
@@ -66,10 +78,11 @@ Rule / Agent 처리 또는 Human Review 분기
 Mission · Constraints
         ↓
 Optimization Solver
-작업 배정 · 수행 순서 최적화
+NVIDIA cuOpt
+Robot 작업 배정 · 수행 순서 최적화
         ↓
 MAPF
-다중 로봇 이동 계획
+충돌 없는 다중 로봇 이동 계획
         ↓
 MOVE · WAIT · SERVICE
         ↓
@@ -77,8 +90,14 @@ Spring Boot
 Plan 검증 및 Simulation 적용
         ↓
 Runtime State
-        ↓
-Frontend 실시간 관제
+Robot 위치 · Battery · Task · Event
+        ├────────→ Frontend 실시간 관제
+        │
+        └─ 상태 변화 / Replanning Trigger
+                    ↓
+              AI Replanning
+                    ↓
+              AI Planning으로 재진입
 ```
 
 Frontend, Backend, AI Planning Server가 각각 역할을 나누고,
@@ -93,8 +112,9 @@ Planning과 Simulation이 동일한 실행 환경을 사용하도록 구성했�
 |---|---|
 | **Frontend** | 창고 편집, AI 요청, Simulation 및 Robot 상태 시각화 |
 | **Spring Boot** | Warehouse·Robot·Task 관리, 권한 검증, AI 연동, Simulation 실행 |
-| **AI Planning** | 자연어 요청 해석, Rule/Agent Routing 및 Human Review 분기, Mission·Constraint 구성, 작업 최적화 및 재계획 |
-| **Optimization / MAPF** | Robot 작업 배정, 수행 순서 및 다중 로봇 이동 계획 계산 |
+| **AI Planning** | 자연어 요청 해석, Rule/Agent Routing 및 Human Review 분기, Mission·Constraint 구성, 상태 기반 재계획 |
+| **NVIDIA cuOpt** | Robot 작업 배정 및 수행 순서 최적화 |
+| **MAPF** | cuOpt 결과를 기반으로 충돌 없는 다중 로봇 이동 계획 생성 |
 | **PostgreSQL** | Warehouse, Robot, Inventory, Task, Scenario 등 영속 데이터 |
 | **Redis** | Robot 위치·배터리·실행 상태 등 Runtime State |
 | **Neo4j** | Node·Edge와 창고 객체 간 이동·접근 관계 |
