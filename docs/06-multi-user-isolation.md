@@ -243,8 +243,7 @@ Personal Scenario
 Simulation
 ```
 
-이를 통해 Warehouse만 분리되고
-Scenario는 원본 데이터를 계속 참조하는 상태를 방지했습니다.
+Simulation 실행 시 Personal Warehouse에 복제된 Scenario를 사용하도록 구성했습니다.
 
 ---
 
