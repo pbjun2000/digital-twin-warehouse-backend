@@ -278,7 +278,7 @@ AI Plan의 Simulation 적용 로직은
 
 ---
 
-## 8. 주요 Component
+## 8. 연동 관련 주요 Component
 
 | Component | 역할 |
 |---|---|
