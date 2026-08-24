@@ -14,7 +14,24 @@ LARO(LLM Autonomous Robot Orchestration)는
 
 단순한 로봇 경로 탐색이 아니라,
 
-**Digital Twin → AI Planning → 작업 최적화 → 다중 로봇 이동 계획 → 실시간 관제 → Dynamic Replanning**
+```
+사용자 요청 + Digital Twin State
+              ↓
+         AI Planning
+              ↓
+     NVIDIA cuOpt
+     작업 배정 · 수행 순서
+              ↓
+            MAPF
+     충돌 없는 이동 계획
+              ↓
+         Simulation
+              ↓
+        Runtime State
+              ↓
+         Replanning
+              └────→ AI Planning
+```
 
 의 전체 운영 흐름을 구현했습니다.
 
@@ -31,24 +48,8 @@ LARO(LLM Autonomous Robot Orchestration)는
 초기에 생성한 계획의 유효성이 계속 달라질 수 있습니다.
 
 LARO는 현재 창고 상태를 기준으로 AI가 실행 계획을 구성하고,
-Optimization Solver와 MAPF를 통해 작업 배정과 이동 계획을 계산한 뒤
+NVIDIA cuOpt와 MAPF를 통해 작업 배정과 이동 계획을 계산한 뒤
 Simulation에서 이를 실행·관제하고 상태 변화 발생 시 재계획합니다.
-
-```text
-Warehouse State
-      ↓
-AI Planning
-      ↓
-Task Assignment / Optimization
-      ↓
-MAPF
-      ↓
-Simulation
-      ↓
-Real-time Monitoring
-      ↓
-Dynamic Replanning
-```
 
 ---
 
@@ -70,7 +71,7 @@ Dynamic Replanning
 
 - 자연어 요청과 실제 창고 상태를 기반으로 실행 가능한 Mission 구성
 - 요청의 형태와 복잡도에 따라 Rule / Agent 처리 또는 Human Review로 분기
-- LLM은 요청과 운영 조건을 해석하고, 실제 작업 배정과 경로 계산은 Optimization Solver에 위임
+- LLM은 요청과 운영 조건을 해석해 Mission과 Constraints를 구성하고, 작업 배정·수행 순서는 NVIDIA cuOpt가, 다중 로봇 이동 계획은 MAPF가 계산
 
 <p align="center">
   <img src="./assets/ai-plan.png" width="650"/>
@@ -94,6 +95,7 @@ Optimization Solver
 MAPF
 다중 로봇 이동 계획
         ↓
+Robot Execution Plan
 MOVE · WAIT · SERVICE
 ```
 
@@ -184,7 +186,7 @@ Warehouse Graph
 
 | 저장소 | 역할 |
 |---|---|
-| **PostgreSQL** | Warehouse, Robot, Inventory, Task, Scenario 등 영속 데이터 |
+| **PostgreSQL** | Warehouse, Robot, WarehouseItem(재고), Task, Scenario 등 영속 데이터 |
 | **Redis** | 로봇 위치·배터리·실행 상태 등 Runtime State |
 | **Neo4j** | Node·Edge와 창고 객체 간 이동·접근 관계 |
 
@@ -339,14 +341,17 @@ AI Agent 기반 Replanning 기능이 추가되면서
 각 서비스의 책임을 다시 정의했습니다.
 
 ```text
-AI
-→ 계획 생성 · 최적화 · 재계획
+AI Planning
+→ 요청 해석 · Mission/Constraints 구성 · 계획 생성 및 재계획
+
+NVIDIA cuOpt
+→ 작업 배정 · 수행 순서 최적화
+
+MAPF
+→ 충돌 없는 다중 로봇 이동 계획
 
 Backend
-→ 요청 검증 · 실행 상태 관리 · Plan 적용
-
-Frontend
-→ 실행 상태 및 결과 시각화
+→ 요청 검증 · Runtime State 관리 · Plan 적용
 ```
 
 Backend에서 중복되는 재계획 판단 책임을 제거하고,
