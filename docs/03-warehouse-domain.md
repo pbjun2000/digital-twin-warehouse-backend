@@ -229,9 +229,12 @@ nodeCode / edgeCode
 Frontend / AI Planning
 ```
 
-외부 시스템이 DB 내부 PK에 직접 의존하지 않고
-Warehouse Map을 식별할 수 있도록
-DB 식별자와 Map 식별자를 분리했습니다.
+외부 시스템이 DB 내부 PK에 직접 의존하지 않도록
+`nodeCode`와 `edgeCode`를 별도의 Map 식별자로 사용했습니다.
+
+이를 통해 DB Entity의 Numeric ID와
+Frontend · AI Planning에서 사용하는 Warehouse Map 식별 체계를 분리하고,
+Backend · Frontend · AI가 동일한 Node · Edge를 연결하는 기준으로 활용했습니다.
 
 ---
 
