@@ -6,6 +6,9 @@
 
 ## 1. 프로젝트 소개
 
+KT AIVLE School 9기에서 2개월간  
+**Backend 3명 · AI 2명 · Frontend 1명으로 구성된 6인 팀**이 개발한 B2B형 MVP 프로젝트입니다.
+
 LARO(LLM Autonomous Robot Orchestration)는
 사용자의 작업 요청과 창고·재고·로봇의 현재 상태를 바탕으로 실행 가능한 작업 계획을 생성하고,
 NVIDIA cuOpt와 MAPF를 통해 여러 로봇의 작업 배정·수행 순서·이동 계획을 최적화하여 Simulation으로 실행·관제하는 시스템입니다.
