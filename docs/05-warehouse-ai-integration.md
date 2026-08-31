@@ -160,12 +160,17 @@ nodeCode / edgeCode
 
 로 식별 체계를 분리했습니다.
 
-이를 통해 AI Planning이
-PostgreSQL의 내부 PK에 직접 의존하지 않고
-Warehouse Map 자체의 식별자를 사용할 수 있도록 했습니다.
+이를 통해 AI Planning이 PostgreSQL의 내부 PK에 직접 의존하지 않고,
+Warehouse Map에서 사용하는 `nodeCode`와 `edgeCode`를 기준으로
+Node · Edge를 식별할 수 있도록 했습니다.
 
-이 구조는 Frontend의 Warehouse Editor에서도
-동일한 Map 식별자를 사용할 수 있다는 장점이 있습니다.
+Backend 내부 DB ID와 외부 Map 식별자를 분리함으로써
+DB에서 Entity ID가 변경되더라도
+AI Planning이 사용하는 Warehouse Map 식별 체계에는 영향을 최소화할 수 있도록 했습니다.
+
+또한 Frontend Warehouse Editor와 AI Planning이
+동일한 Map 식별자를 사용할 수 있어
+Backend · Frontend · AI 사이에서 Node · Edge를 연결하는 기준으로 활용했습니다.
 
 ---
 
