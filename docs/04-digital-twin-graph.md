@@ -14,29 +14,44 @@ Warehouse에서는 개별 객체의 정보뿐 아니라
 
 ```text
 어떤 Node와 Node가 연결되어 있는가?
-
 특정 Rack에는 어느 위치에서 접근할 수 있는가?
-
 Charging Station은 어떤 이동 경로와 연결되어 있는가?
-
 특정 Edge가 변경되면 Warehouse 이동 구조는 어떻게 달라지는가?
 ```
 
+초기에는 Warehouse의 Node와 Edge를 PostgreSQL에 저장하고,
+필요할 때 NetworkX로 Graph를 구성하는 방식도 검토했습니다.
+
+NetworkX는 구현이 비교적 간단하고
+BFS나 최단 경로와 같은 Graph Algorithm을 수행하기에는 충분했습니다.
+
+하지만 LARO에서는 Graph를 일회성 계산에만 사용하는 것이 아니라,
+
+- Warehouse의 Node·Edge 관계를 지속적으로 관리하고
+- Backend에서 관계 기반으로 조회하며
+- AI Planning에서도 동일한 이동 구조를 반복적으로 활용
+
+할 필요가 있었습니다.
+
+따라서 관계 자체를 Graph 구조로 저장하고 조회할 수 있는
+Neo4j를 선택했습니다.
+
 PostgreSQL은 Warehouse와 관련 Resource의 기준 데이터를 관리하고,
-Neo4j는 이러한 이동·접근 관계를 Graph 형태로 표현하도록 역할을 분리했습니다.
+Neo4j는 이동·접근 관계를 Graph 형태로 표현하도록 역할을 분리했습니다.
 
 ```text
 PostgreSQL
 Warehouse · Node · Edge · Resource
         ↓
-Graph Sync
+    Graph Sync
         ↓
 Neo4j
 Warehouse Graph
 ```
 
-Neo4j를 원본 데이터베이스로 사용하지 않고
-**PostgreSQL 데이터를 기반으로 구성되는 Graph Projection**으로 사용했습니다.
+Neo4j를 원본 데이터베이스로 사용하지 않고,
+PostgreSQL 데이터를 기반으로 구성되는
+**Graph Projection**으로 사용했습니다.
 
 ---
 
@@ -273,8 +288,7 @@ AI에 제공하는 데이터 구조는
 
 ## 8. Graph Sync 실패 시 기준
 
-`AFTER_COMMIT` 구조를 사용하더라도
-다음 상황은 발생할 수 있습니다.
+`AFTER_COMMIT` 구조를 사용하더라도 다음 상황은 발생할 수 있습니다.
 
 ```text
 PostgreSQL COMMIT 성공
@@ -282,21 +296,35 @@ PostgreSQL COMMIT 성공
 Neo4j Graph Sync 실패
 ```
 
-이 경우 PostgreSQL에는 정상적인 기준 데이터가 남아 있습니다.
+`AFTER_COMMIT`은 PostgreSQL Transaction이 실패했는데
+Neo4j만 먼저 변경되는 문제를 방지하지만,
+Commit 이후 발생한 Neo4j Sync 실패까지 자동으로 복구하지는 못합니다.
+
+이 경우에도 PostgreSQL에는 정상적인 기준 데이터가 남아 있습니다.
 
 Neo4j는 PostgreSQL 데이터를 기반으로 다시 구성할 수 있는
-Projection으로 사용하기 때문에,
-PostgreSQL 상태를 기준으로 다시 동기화할 수 있습니다.
+Graph Projection이기 때문에,
+PostgreSQL의 현재 상태를 기준으로 Graph를 다시 동기화할 수 있습니다.
 
 ```text
-PostgreSQL 정합성 우선
-        +
-Neo4j 재동기화 가능
+PostgreSQL
+Source of Truth
+        ↓
+Graph 재동기화
+        ↓
+Neo4j
+Graph Projection
 ```
 
-현재 구조에서는 PostgreSQL을 기준 데이터로 유지하는 것을 우선했으며,
-운영 규모가 커질 경우 Graph Sync 실패에 대한
-재시도나 실패 이벤트 처리 구조를 추가할 수 있습니다.
+현재 MVP에서는 PostgreSQL의 정합성을 우선하고
+Neo4j를 재생성 가능한 Projection으로 관리하는 구조까지 구현했습니다.
+
+서비스 규모가 커질 경우에는 Graph Sync 실패를 안정적으로 재처리할 수 있도록
+
+- **Retry**
+- **Transactional Outbox**
+
+와 같은 구조를 적용하는 방향을 검토할 수 있습니다.
 
 ---
 
