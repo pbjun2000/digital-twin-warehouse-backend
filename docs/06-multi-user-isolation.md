@@ -173,6 +173,43 @@ Edge / Storage / ChargingStation
 이를 통해 Template과 실행 데이터를 공유하지 않는
 독립적인 Warehouse 환경을 구성했습니다.
 
+### Deep Clone을 선택한 이유
+
+사용자별로 Runtime State만 별도로 관리하고
+Warehouse의 기준 구조를 공유하는 방식도 고려할 수 있었습니다.
+
+하지만 2개월 MVP에서는
+
+- 사용자 간 실행 상태 격리를 명확하게 보장할 수 있고
+- Inventory · Robot · Scenario 등 서로 연관된 실행 데이터를
+  하나의 Personal Warehouse Scope 안에서 관리할 수 있으며
+- 구현과 테스트 시 사용자별 데이터 경계를 확인하기 쉽다는 점
+
+을 우선했습니다.
+
+따라서 Shared Warehouse를 Template으로 두고,
+USER / GUEST별 Personal Warehouse를 Deep Clone하는 방식을 적용했습니다.
+
+### Trade-off
+
+Deep Clone은 사용자별 실행 환경을 명확하게 분리할 수 있다는 장점이 있지만,
+Warehouse 데이터 규모와 사용자 수가 증가할수록
+
+- 데이터 복제 비용
+- 저장 공간 사용량
+- Personal Warehouse 생성 시간
+
+이 증가할 수 있습니다.
+
+현재 프로젝트는 2개월 MVP이기 때문에
+확실한 상태 격리를 우선했지만,
+
+서비스 규모가 커질 경우에는
+공통 Warehouse Template은 공유하면서
+
+**Robot 위치·배터리·재고·Simulation 상태와 같은 Runtime State만 사용자별로 분리하거나,
+변경이 발생한 데이터만 복제하는 Copy-on-write 방식**을 검토할 수 있습니다.
+
 ---
 
 ## 5. Shared Template 실행 차단과 소유권 검증
