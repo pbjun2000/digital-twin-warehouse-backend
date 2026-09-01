@@ -122,6 +122,30 @@ MOVE · WAIT · SERVICE
 - 로봇의 위치·배터리·작업 진행 상태와 이동 과정을 실시간으로 확인
 - Task · Robot · Event 정보를 한 화면에서 통합 관제
 
+Simulation 중 지속적으로 변경되는 로봇 위치·배터리·작업 상태는
+Redis 기반 Runtime State로 관리하고,
+Frontend에는 WebSocket/STOMP를 통해 상태 변경을 전달하는 구조로 설계했습니다.
+
+```text
+Simulation
+    ↓
+Runtime State
+    ↓
+Redis
+    ↓
+Spring Boot
+    ↓
+WebSocket / STOMP
+    ↓
+Frontend Monitoring
+```
+
+REST Polling으로 상태를 반복 조회하는 대신,
+연결을 유지한 상태에서 변경된 실행 상태를 전달할 수 있도록 구성했습니다.
+
+> WebSocket/STOMP의 실제 구현은 Backend 팀원이 담당했으며,
+> 저는 Redis 기반 Runtime State와 실시간 상태 전달 흐름의 설계에 참여했습니다.
+
 <p align="center">
   <img src="./assets/simulation-live-view-readme.png" width="1000"/>
 </p>
@@ -217,6 +241,7 @@ Warehouse Graph
 - Warehouse Resource 소유권 검증 및 접근 제어
 - PostgreSQL → Neo4j Warehouse Graph Sync 구현
 - AI Planning에서 활용할 Warehouse Graph API 구현
+- Redis 기반 상태 저장 및 WebSocket/STOMP 실시간 전달 구조 설계
 - Backend / AI / Frontend 통합 작업 참여
 
 특히
