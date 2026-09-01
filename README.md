@@ -240,7 +240,7 @@ Warehouse Graph
 - Shared Warehouse → Personal Warehouse Deep Clone 구현
 - Warehouse Resource 소유권 검증 및 접근 제어
 - PostgreSQL → Neo4j Warehouse Graph Sync 구현
-- AI Planning에서 활용할 Warehouse Graph API 구현
+- AI Planning에서 사용할 Warehouse Graph API 및 Node·Edge 데이터 제공
 - Redis 기반 상태 저장 및 WebSocket/STOMP 실시간 전달 구조 설계
 - Backend / AI / Frontend 통합 작업 참여
 
